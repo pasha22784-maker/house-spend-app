@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="House Spend">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <!-- Google Identity Services for Google Auth -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- Preloaded Offline Data from Excel -->
+  <script src="initial_data.js"></script>
+  <style>
+    :root {
+      --primary: #6C63FF;
+      --primary-light: #8e87ff;
+      --secondary: #00D2FF;
+      --bg: #1a1a2e;
+      --surface: #16213e;
+      --card: #0f3460;
+      --text: #ffffff;
+      --text-sec: #9fa8da;
+      --success: #00C853;
+      --warning: #FFD600;
+      --error: #FF5252;
+      --border: #2a2a4a;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { background-color: #0b0c16; color: var(--text); display: flex; justify-content: center; min-height: 100vh; }
+    .mobile-frame { width: 100%; max-width: 480px; background-color: var(--bg); min-height: 100vh; display: flex; flex-direction: column; position: relative; box-shadow: 0 0 50px rgba(0,0,0,0.85); }
+    
+    /* Top Bar */
+    .top-bar { padding: 14px 16px; background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 50; }
+    .top-bar h1 { font-size: 19px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 8px; }
+    .header-actions { display: flex; gap: 8px; align-items: center; }
+    .month-nav-box { display: flex; align-items: center; background: var(--card); border: 1px solid var(--secondary); border-radius: 12px; overflow: hidden; }
+    .nav-arrow-btn { background: transparent; border: none; color: var(--secondary); font-size: 13px; font-weight: bold; padding: 5px 8px; cursor: pointer; }
+    .nav-arrow-btn:active { background: rgba(0, 210, 255, 0.25); }
+    .month-select { background: transparent; color: #fff; border: none; padding: 5px 4px; font-size: 12px; font-weight: 700; outline: none; text-align: center; }
+    .month-select option { background: var(--surface); color: #fff; }
+    .btn-help-install { background: rgba(0, 210, 255, 0.15); border: 1px solid var(--secondary); color: var(--secondary); font-size: 11px; padding: 5px 9px; border-radius: 10px; font-weight: 700; cursor: pointer; }
+
+    /* Google Auth & Cloud Status Strip */
+    .cloud-strip { background: rgba(108, 99, 255, 0.12); border-bottom: 1px solid var(--border); padding: 8px 16px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+    .cloud-status { display: flex; align-items: center; gap: 6px; color: var(--text-sec); }
+    .cloud-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warning); display: inline-block; }
+    .cloud-dot.connected { background: var(--success); }
+    .cloud-btn { background: var(--card); color: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; }
+
+    /* Content Area */
+    .content { flex: 1; padding: 14px 16px; overflow-y: auto; padding-bottom: 95px; }
+
+    /* Cards */
+    .card { background-color: var(--card); border-radius: 16px; padding: 15px; margin-bottom: 12px; border: 1px solid var(--border); }
+    .card-gradient { background: linear-gradient(135deg, #4b43c6 0%, #6C63FF 100%); border: none; }
+    .card-title { font-size: 11px; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 5px; }
+    .card-value { font-size: 24px; font-weight: 700; color: #fff; }
+    .card-sub { font-size: 12px; color: rgba(255,255,255,0.85); margin-top: 4px; }
+    .row { display: flex; gap: 10px; }
+    .col { flex: 1; }
+
+    /* Person Ledger Pills / Tabs */
+    .person-pills { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; scrollbar-width: none; }
+    .person-pill { background: var(--surface); border: 1px solid var(--border); color: var(--text-sec); border-radius: 20px; padding: 7px 16px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+    .person-pill.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .person-pill.add-new { border-style: dashed; border-color: var(--secondary); color: var(--secondary); background: transparent; }
+
+    /* Quick Actions */
+    .actions-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+    .action-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px 6px; display: flex; flex-direction: column; align-items: center; cursor: pointer; color: #fff; transition: 0.15s; }
+    .action-btn:active { transform: scale(0.96); background: var(--card); }
+    .action-btn span { font-size: 20px; margin-bottom: 4px; }
+    .action-btn p { font-size: 11px; font-weight: 600; }
+
+    /* Forms */
+    .form-group { margin-bottom: 12px; }
+    .form-label { display: block; font-size: 12px; color: var(--text-sec); margin-bottom: 5px; }
+    .form-input, .form-select { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 11px 13px; color: #fff; font-size: 14px; outline: none; }
+    .form-input:focus, .form-select:focus { border-color: var(--primary); }
+    .btn-primary { width: 100%; background: var(--primary); color: #fff; border: none; border-radius: 12px; padding: 13px; font-size: 14px; font-weight: 700; cursor: pointer; }
+    .btn-primary:active { opacity: 0.85; }
+
+    /* Milk Tracker Specifics */
+    .milk-banner { background: var(--surface); border-radius: 14px; padding: 12px; border: 1px solid var(--border); margin-bottom: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .milk-input-box { display: flex; flex-direction: column; }
+    .milk-input-box label { font-size: 11px; color: var(--text-sec); margin-bottom: 3px; }
+    .milk-input-box input { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; color: #fff; font-size: 14px; font-weight: 600; }
+    
+    .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; margin-top: 8px; }
+    .cal-day { aspect-ratio: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; font-size: 11px; position: relative; }
+    .cal-day.modified { border-color: var(--warning); background: rgba(255, 214, 0, 0.12); }
+    .cal-day.default-3 { border-color: rgba(108, 99, 255, 0.4); background: rgba(108, 99, 255, 0.08); }
+    .cal-day .d-num { font-weight: 700; font-size: 12px; }
+    .cal-day .d-sub { font-size: 9px; color: var(--secondary); margin-top: 2px; }
+
+    /* Expenses List */
+    .exp-item { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 11px 13px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
+    .exp-item .left h4 { font-size: 13px; font-weight: 600; color: #fff; }
+    .exp-item .left p { font-size: 11px; color: var(--text-sec); margin-top: 3px; }
+    .exp-item .right { display: flex; align-items: center; gap: 8px; }
+    .exp-item .amount { font-size: 14px; font-weight: 700; color: #fff; }
+    .btn-icon { background: none; border: none; cursor: pointer; font-size: 15px; padding: 3px; border-radius: 5px; }
+
+    /* Navigation Bar */
+    .tab-bar { position: fixed; bottom: 0; width: 100%; max-width: 480px; height: 64px; background-color: var(--surface); display: flex; justify-content: space-around; align-items: center; border-top: 1px solid var(--border); z-index: 100; }
+    .tab-item { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-sec); text-decoration: none; font-size: 10px; cursor: pointer; flex: 1; padding: 6px 0; border: none; background: transparent; }
+    .tab-item.active { color: var(--secondary); font-weight: 700; }
+    .tab-icon { font-size: 18px; margin-bottom: 2px; }
+
+    /* Modals */
+    .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 200; justify-content: center; align-items: center; padding: 18px; }
+    .modal { background: var(--surface); border-radius: 18px; width: 100%; max-width: 400px; padding: 18px; border: 1px solid var(--border); max-height: 90vh; overflow-y: auto; }
+    .modal h3 { font-size: 17px; margin-bottom: 14px; }
+    .btn-row { display: flex; gap: 8px; margin-top: 14px; }
+    .btn-sec { flex: 1; background: var(--card); color: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 11px; cursor: pointer; font-weight: 600; text-align: center; }
+
+    .badge-tag { display: inline-block; padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 700; }
+    .badge-ghosia { background: rgba(108, 99, 255, 0.25); color: var(--primary-light); }
+    .badge-guddo { background: rgba(0, 210, 255, 0.25); color: var(--secondary); }
+    .badge-other { background: rgba(0, 200, 83, 0.25); color: var(--success); }
+
+    .screen { display: none; }
+    .screen.active { display: block; }
+  </style>
+</head>
+<body>
+
+<div class="mobile-frame">
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <h1><span>🏠</span> House Spend</h1>
+    <div class="header-actions">
+      <div class="month-nav-box">
+        <button class="nav-arrow-btn" onclick="prevMonth()" title="Pichla Mahina">◀</button>
+        <select class="month-select" id="month-selector" onchange="changeMonth(this.value)">
+          <!-- Generated dynamically for all years and months -->
+        </select>
+        <button class="nav-arrow-btn" onclick="nextMonth()" title="Agla Mahina">▶</button>
+      </div>
+      <button class="btn-help-install" onclick="openInstallGuide()">📲 Help</button>
+    </div>
+  </div>
+
+  <!-- Google Auth & Cloud Status Strip -->
+  <div class="cloud-strip">
+    <div class="cloud-status">
+      <span class="cloud-dot" id="cloud-dot"></span>
+      <span id="cloud-status-text">Google Backup: Ready</span>
+    </div>
+    <div style="display:flex; gap:6px;">
+      <button class="cloud-btn" onclick="openGoogleAuthModal()">☁️ Google Sync</button>
+    </div>
+  </div>
+
+  <!-- ==================== 1. HOME SCREEN ==================== -->
+  <div class="content screen active" id="screen-home">
+    <div class="card card-gradient">
+      <div class="card-title">Monthly Overview</div>
+      <div class="card-value" id="dash-total-exp">₹0</div>
+      <div class="card-sub" id="dash-salary-info">Salary Remaining: ₹60,000</div>
+    </div>
+
+    <!-- Individual Totals Carousel/Grid -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <span style="font-size:12px; font-weight:700; color:var(--text-sec); text-transform:uppercase;">Individual Hisaab</span>
+      <span style="font-size:11px; color:var(--secondary); cursor:pointer;" onclick="openScreen('bahi')">Open Bahi-Khata ➔</span>
+    </div>
+
+    <div id="home-individuals-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:14px;">
+      <!-- Populated dynamically for each person -->
+    </div>
+
+    <!-- Quick Action Buttons -->
+    <div class="actions-grid">
+      <button class="action-btn" onclick="openScreen('add')">
+        <span>➕</span>
+        <p>Add Expense</p>
+      </button>
+      <button class="action-btn" onclick="openScreen('milk')">
+        <span>🥛</span>
+        <p>Milk Tracker</p>
+      </button>
+      <button class="action-btn" onclick="openScreen('bahi')">
+        <span>📖</span>
+        <p>Bahi Khata</p>
+      </button>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="display:flex; justify-content:space-between; align-items:center;">
+        <span>Recent Expenses</span>
+        <span style="font-size:11px; color:var(--secondary); cursor:pointer;" onclick="openScreen('list')">View All</span>
+      </div>
+      <div id="home-recent-list" style="margin-top: 8px;"></div>
+    </div>
+  </div>
+
+  <!-- ==================== 2. BAHI-KHATA (LEDGER PER PERSON) SCREEN ==================== -->
+  <div class="content screen" id="screen-bahi">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <h2 style="font-size: 17px;">📖 Bahi Khata (Individual Ledger)</h2>
+      <button class="month-select" style="cursor:pointer;" onclick="openAddPersonModal()">+ Naya Shakhs</button>
+    </div>
+
+    <!-- Person Selector Pills -->
+    <div class="person-pills" id="bahi-person-pills">
+      <!-- Populated dynamically -->
+    </div>
+
+    <!-- Selected Person's Summary Card -->
+    <div class="card card-gradient" id="bahi-person-card">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div class="card-title" id="bahi-person-name">Ghosia's Account</div>
+          <div class="card-value" id="bahi-person-total">₹0</div>
+        </div>
+        <button class="cloud-btn" style="background:rgba(0,0,0,0.3); border-color:rgba(255,255,255,0.4);" onclick="shareBahiKhata()">📤 Share</button>
+      </div>
+      <div class="card-sub" id="bahi-person-sub">Milk: 0L (₹0) • Misc: ₹0</div>
+    </div>
+
+    <!-- Person Detailed Ledger Entries -->
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <span class="card-title" style="margin:0;">Entries For This Month</span>
+        <button class="btn-help-install" onclick="quickAddForActivePerson()">+ Add Entry</button>
+      </div>
+      <div id="bahi-entries-list"></div>
+    </div>
+
+    <!-- Person Settings / Delete Option -->
+    <div class="card" id="bahi-person-settings-card">
+      <div class="card-title">Individual Settings</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; font-size:13px; margin-top:6px;">
+        <span>Default Milk / Day:</span>
+        <strong id="bahi-def-milk-display">3 Liters</strong>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:12px;">
+        <button class="btn-sec" style="padding:8px;" onclick="editCurrentPersonSettings()">Edit Settings</button>
+        <button class="btn-sec" id="btn-delete-person" style="padding:8px; color:var(--error); border-color:var(--error);" onclick="deleteCurrentPerson()">Delete Person</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 3. MILK TRACKER SCREEN ==================== -->
+  <div class="content screen" id="screen-milk">
+    <h2 style="font-size: 17px; margin-bottom: 6px;">🥛 Daily Milk Tracker</h2>
+    <p style="font-size: 12px; color: var(--text-sec); margin-bottom: 10px;">
+      * Har shakhs ka roze ka default pre-filled hai. Jis din kam/zyada ho, us date par tap karein.
+    </p>
+
+    <!-- Editable Rate & Subscription Box -->
+    <div class="milk-banner">
+      <div class="milk-input-box">
+        <label>Milk Unit Price (₹/L)</label>
+        <input type="number" id="milk-price-input" value="44" step="0.5" onchange="updateMilkPrice(this.value)">
+      </div>
+      <div class="milk-input-box">
+        <label>Subscription Fee (₹)</label>
+        <input type="number" id="milk-sub-input" value="399" onchange="updateSubFee(this.value)">
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span class="card-title" style="margin:0;">Milk Calendar</span>
+        <span style="font-size:11px; color:var(--text-sec);"><span style="color:var(--warning);">■</span> Modified &nbsp; <span style="color:var(--primary);">■</span> Default</span>
+      </div>
+      <div class="calendar-grid" id="milk-calendar-grid"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Milk Totals per Individual</div>
+      <div id="milk-individual-breakdown" style="margin-top:6px;"></div>
+      <div style="display:flex; justify-content:space-between; font-size:15px; margin-top:10px; border-top:1px solid var(--border); padding-top:8px;">
+        <span style="color:var(--secondary); font-weight:700;">Total Milk Cost:</span>
+        <strong style="color:var(--secondary);" id="milk-total-both">₹0</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 4. ADD EXPENSE SCREEN ==================== -->
+  <div class="content screen" id="screen-add">
+    <h2 style="font-size: 17px; margin-bottom: 12px;">➕ Naya Kharcha Add Karein</h2>
+    
+    <div class="form-group">
+      <label class="form-label">Amount (₹)</label>
+      <input type="number" class="form-input" id="add-amount" placeholder="e.g. 950" autofocus>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Category</label>
+      <select class="form-select" id="add-category">
+        <option value="Misc Expense">Misc Expense</option>
+        <option value="Groceries">Groceries</option>
+        <option value="Electricity - Ghosia">Electricity</option>
+        <option value="School Fee">Taymur's School Fee</option>
+        <option value="Installment">Installment</option>
+        <option value="Milk">Milk Entry</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Person (Kiska Kharcha Hai?)</label>
+      <select class="form-select" id="add-person">
+        <!-- Dynamically populated -->
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Date</label>
+      <input type="date" class="form-input" id="add-date">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Note / Details</label>
+      <input type="text" class="form-input" id="add-note" placeholder="e.g. Canteen, Ghee, Cylinder, Dawaai">
+    </div>
+
+    <button class="btn-primary" onclick="submitAddExpense()">Save Expense</button>
+  </div>
+
+  <!-- ==================== 5. ALL EXPENSES LIST ==================== -->
+  <div class="content screen" id="screen-list">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <h2 style="font-size: 17px;">📋 All Expenses</h2>
+      <button class="month-select" style="cursor:pointer;" onclick="openScreen('add')">+ Add</button>
+    </div>
+    
+    <div style="margin-bottom:12px;">
+      <input type="text" class="form-input" id="search-filter" placeholder="🔍 Search by note, category, person..." oninput="renderExpensesList()">
+    </div>
+
+    <div id="full-expenses-container"></div>
+  </div>
+
+  <!-- ==================== 6. MONTHLY SUMMARY SCREEN ==================== -->
+  <div class="content screen" id="screen-summary">
+    <h2 style="font-size: 17px; margin-bottom: 12px;">📊 Month-End Summary</h2>
+
+    <div class="card card-gradient">
+      <div class="card-title">Salary & Transfer Calculation</div>
+      <div style="display:flex; justify-content:space-between; font-size:14px; margin-top:8px;">
+        <span>Total Salary:</span>
+        <strong id="sum-salary-val">₹60,000</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:14px; margin-top:8px;">
+        <span>Total Ghosia Expenses:</span>
+        <strong id="sum-ghosia-exp">₹0</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:17px; margin-top:10px; border-top:1px solid rgba(255,255,255,0.25); padding-top:8px;">
+        <span style="color:var(--secondary); font-weight:700;">Transfer to Ghosia:</span>
+        <strong style="color:var(--secondary); font-size:19px;" id="sum-transfer-to-ghosia">₹60,000</strong>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Category Breakdown</div>
+      <div style="display:flex; justify-content:space-between; font-size:14px; margin-top:8px;">
+        <span>Total Milk (All):</span>
+        <strong id="sum-milk-total">₹0</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:14px; margin-top:8px;">
+        <span>Total Groceries:</span>
+        <strong id="sum-groceries-total">₹0</strong>
+      </div>
+      <div id="summary-individual-breakdown" style="margin-top:6px;"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Edit Salary Rate</div>
+      <div class="form-group" style="margin-top:6px;">
+        <label class="form-label">Total Salary (₹)</label>
+        <input type="number" class="form-input" id="cfg-salary-field" value="60000" onchange="updateSalary(this.value)">
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 7. SETTINGS & CLOUD SCREEN ==================== -->
+  <div class="content screen" id="screen-settings">
+    <h2 style="font-size: 17px; margin-bottom: 12px;">⚙️ Settings & Google Cloud Backup</h2>
+
+    <!-- Google Drive & Cloud Backup Card -->
+    <div class="card">
+      <div class="card-title">Google Drive & Cloud Backup</div>
+      <div id="google-profile-info" style="margin: 8px 0 12px; font-size:13px; color:var(--text-sec); line-height: 1.5;">
+        Aapka data Google Drive par save karne ke liye neeche diye gaye button par tap karein.
+      </div>
+      <button class="btn-primary" style="background:#4285F4; display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:10px;" onclick="saveToGoogleDrive()">
+        <span>📁</span> Google Drive Mein Backup Save Karein
+      </button>
+      <div style="display:flex; gap:8px; margin-bottom:10px;">
+        <button class="btn-sec" onclick="openGoogleAccountPrompt()">🔗 Gmail Account Link</button>
+        <button class="btn-sec" onclick="restoreFromGoogleCloud()">📥 Drive Se Restore</button>
+      </div>
+      <p style="font-size:11px; color:var(--text-sec);">
+        * "Save to Google Drive" dabane par aapke mobile ka Google Drive khulega jahan aap 1-click mein backup file save kar sakte hain.
+      </p>
+    </div>
+
+    <!-- Google Sheet Configuration -->
+    <div class="card">
+      <div class="card-title">Google Spreadsheet Direct Sync (Optional)</div>
+      <p style="font-size:11px; color:var(--text-sec); margin-top:4px;">
+        Google Sheet URL ya Spreadsheet ID yahan daal kar live sheet ke sath sync kar sakte hain:
+      </p>
+      <div class="form-group" style="margin-top:8px;">
+        <label class="form-label">Google Spreadsheet ID ya Webhook URL</label>
+        <input type="text" class="form-input" id="cfg-sheet-id" placeholder="Spreadsheet ID ya Script URL paste karein" onchange="updateSheetId(this.value)">
+      </div>
+      <button class="btn-primary" style="background:var(--success);" onclick="exportDataBackup()">📥 Export Offline Backup File (JSON)</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Reset</div>
+      <button class="btn-sec" style="color:var(--error); border-color:var(--error); width:100%;" onclick="resetData()">⚠️ Reset To Original Excel Data</button>
+    </div>
+  </div>
+
+  <!-- ==================== MODALS ==================== -->
+
+  <!-- Add Person Modal -->
+  <div class="modal-overlay" id="add-person-modal">
+    <div class="modal">
+      <h3>👤 Naya Shakhs / Add Person</h3>
+      <div class="form-group">
+        <label class="form-label">Naam (Name)</label>
+        <input type="text" class="form-input" id="new-person-name" placeholder="e.g. Taymur, Zahran, Rashid">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Roze ka Default Milk (Liters)</label>
+        <input type="number" class="form-input" id="new-person-milk" value="3" step="0.5">
+      </div>
+      <div class="btn-row">
+        <button class="btn-sec" onclick="closeAddPersonModal()">Cancel</button>
+        <button class="btn-primary" style="margin-top:0;" onclick="saveNewPerson()">Add Person</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Person Modal -->
+  <div class="modal-overlay" id="edit-person-modal">
+    <div class="modal">
+      <h3>✏️ Edit Individual Settings</h3>
+      <div class="form-group">
+        <label class="form-label">Name</label>
+        <input type="text" class="form-input" id="edit-person-name">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Default Daily Milk (Liters)</label>
+        <input type="number" class="form-input" id="edit-person-milk" step="0.5">
+      </div>
+      <div class="btn-row">
+        <button class="btn-sec" onclick="closeEditPersonModal()">Cancel</button>
+        <button class="btn-primary" style="margin-top:0;" onclick="saveEditedPerson()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Milk Edit Day Modal (Dynamic for all persons) -->
+  <div class="modal-overlay" id="milk-day-modal">
+    <div class="modal">
+      <h3 id="milk-modal-title">🥛 Daily Milk Entry</h3>
+      <p style="font-size:12px; color:var(--text-sec); margin-bottom:12px;">Har shakhs ki quantity is din ke liye badal sakte hain:</p>
+      
+      <div id="modal-milk-persons-inputs">
+        <!-- Dynamically rendered per person -->
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-sec" onclick="closeMilkDayModal()">Cancel</button>
+        <button class="btn-primary" style="margin-top:0;" onclick="saveMilkDayModal()">Save Date</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Expense Modal -->
+  <div class="modal-overlay" id="edit-modal">
+    <div class="modal">
+      <h3>✏️ Edit Expense</h3>
+      <input type="hidden" id="edit-id">
+      
+      <div class="form-group">
+        <label class="form-label">Amount (₹)</label>
+        <input type="number" class="form-input" id="edit-amount">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select class="form-select" id="edit-category">
+          <option value="Misc Expense">Misc Expense</option>
+          <option value="Groceries">Groceries</option>
+          <option value="Electricity - Ghosia">Electricity</option>
+          <option value="School Fee">Taymur's School Fee</option>
+          <option value="Installment">Installment</option>
+          <option value="Milk">Milk</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Person</label>
+        <select class="form-select" id="edit-person">
+          <!-- Dynamically populated -->
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Date</label>
+        <input type="date" class="form-input" id="edit-date">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Note</label>
+        <input type="text" class="form-input" id="edit-note">
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-sec" onclick="closeEditModal()">Cancel</button>
+        <button class="btn-primary" style="margin-top:0;" onclick="saveEditedExpense()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Phone Install Guide Modal -->
+  <div class="modal-overlay" id="install-guide-modal">
+    <div class="modal">
+      <h3>📲 Phone Mein App Install Karne Ka Tareeqa</h3>
+      <div style="font-size:13px; color:var(--text-sec); line-height:1.6; margin: 12px 0;">
+        <p><strong style="color:#fff;">Android Phone (Chrome):</strong></p>
+        <p>1. Upar right corner mein <strong>3 dots (⋮)</strong> par tap karein.</p>
+        <p>2. Menu mein <strong>"Install app"</strong> ya <strong>"Add to Home screen"</strong> (होम स्क्रीन पर जोड़ें) select karein.</p>
+        <p>3. "Add / Install" dabayein — aapke mobile ke app drawer aur screen par app icon aa jayega!</p>
+        <br>
+        <p><strong style="color:#fff;">iPhone (Safari):</strong></p>
+        <p>1. Neeche <strong>Share button (⎋)</strong> dabayein.</p>
+        <p>2. <strong>"Add to Home Screen"</strong> par tap karein.</p>
+      </div>
+      <button class="btn-primary" onclick="closeInstallGuide()">Samajh Gaya (OK)</button>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation -->
+  <div class="tab-bar">
+    <button class="tab-item active" onclick="openScreen('home')">
+      <span class="tab-icon">🏠</span>
+      <span>Home</span>
+    </button>
+    <button class="tab-item" onclick="openScreen('bahi')">
+      <span class="tab-icon">📖</span>
+      <span>Bahi Khata</span>
+    </button>
+    <button class="tab-item" onclick="openScreen('milk')">
+      <span class="tab-icon">🥛</span>
+      <span>Milk</span>
+    </button>
+    <button class="tab-item" onclick="openScreen('add')">
+      <span class="tab-icon">➕</span>
+      <span>Add</span>
+    </button>
+    <button class="tab-item" onclick="openScreen('list')">
+      <span class="tab-icon">📋</span>
+      <span>List</span>
+    </button>
+    <button class="tab-item" onclick="openScreen('summary')">
+      <span class="tab-icon">📊</span>
+      <span>Summary</span>
+    </button>
+    <button class="tab-item" onclick="openScreen('settings')">
+      <span class="tab-icon">⚙️</span>
+      <span>Settings</span>
+    </button>
+  </div>
+</div>
+
+<script>
+  // Initial default settings with multiple persons support
+  const defaultSettings = {
+    milkUnitPrice: 44,
+    subscriptionFee: 399,
+    totalSalary: 60000,
+    sheetId: '',
+    googleUser: null,
+    // List of persons with their individual properties
+    persons: [
+      { id: 'p_ghosia', name: 'Ghosia', defaultMilk: 3, role: 'primary' },
+      { id: 'p_guddo', name: 'Guddo', defaultMilk: 3, role: 'member' }
+    ],
+    // Overrides: { 'YYYY-MM-DD': { 'Ghosia': 3, 'Guddo': 2, ... } }
+    milkOverrides: {}
+  };
+
+  let settings = JSON.parse(localStorage.getItem('hs_settings_v3') || 'null');
+  let expenses = JSON.parse(localStorage.getItem('hs_expenses_v3') || 'null');
+  let currentMonth = '2026-09';
+  let activePersonName = 'Ghosia';
+  let activeMilkDate = '';
+
+  const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const FULL_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+  // Initialize
+  async function init() {
+    if (!settings) {
+      settings = defaultSettings;
+      saveData();
+    }
+    // Ensure persons array exists
+    if (!settings.persons || settings.persons.length === 0) {
+      settings.persons = defaultSettings.persons;
+      saveData();
+    }
+
+    if (!expenses || expenses.length === 0) {
+      if (window.INITIAL_EXCEL_DATA && Array.isArray(window.INITIAL_EXCEL_DATA)) {
+        expenses = window.INITIAL_EXCEL_DATA;
+      } else {
+        try {
+          const res = await fetch('./initial_data.json');
+          expenses = await res.json();
+        } catch (e) {
+          expenses = [];
+        }
+      }
+      saveData();
+    }
+
+    // Set default month to current actual month if after 2026-09
+    const today = new Date();
+    const todayMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    if (todayMonth >= '2026-09') {
+      currentMonth = todayMonth;
+    }
+
+    buildMonthSelector();
+
+    document.getElementById('add-date').valueAsDate = new Date();
+    document.getElementById('milk-price-input').value = settings.milkUnitPrice;
+    document.getElementById('milk-sub-input').value = settings.subscriptionFee;
+    document.getElementById('cfg-salary-field').value = settings.totalSalary;
+    document.getElementById('cfg-sheet-id').value = settings.sheetId || '';
+
+    // Register Service Worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./service-worker.js').catch(console.error);
+    }
+
+    updateCloudStatusUI();
+    renderAll();
+  }
+
+  function buildMonthSelector() {
+    const sel = document.getElementById('month-selector');
+    if (!sel) return;
+    sel.innerHTML = '';
+
+    const [curY, curM] = currentMonth.split('-').map(Number);
+    // Allow dynamic range 2025 to 2035 (perpetual!)
+    const startYear = Math.min(2025, curY - 1);
+    const endYear = Math.max(2035, curY + 5);
+
+    for (let y = startYear; y <= endYear; y++) {
+      for (let m = 1; m <= 12; m++) {
+        const val = `${y}-${String(m).padStart(2, '0')}`;
+        const opt = document.createElement('option');
+        opt.value = val;
+        opt.innerText = `${MONTH_NAMES[m - 1]} ${y}`;
+        if (val === currentMonth) opt.selected = true;
+        sel.appendChild(opt);
+      }
+    }
+  }
+
+  function changeMonth(m) {
+    currentMonth = m;
+    buildMonthSelector();
+    renderAll();
+  }
+
+  function prevMonth() {
+    const [y, m] = currentMonth.split('-').map(Number);
+    const date = new Date(y, m - 2, 1);
+    currentMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    buildMonthSelector();
+    renderAll();
+  }
+
+  function nextMonth() {
+    const [y, m] = currentMonth.split('-').map(Number);
+    const date = new Date(y, m, 1);
+    currentMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    buildMonthSelector();
+    renderAll();
+  }
+
+  function renderAll() {
+    populatePersonDropdowns();
+    renderDashboard();
+    renderBahiKhata();
+    renderMilkCalendar();
+    renderExpensesList();
+    renderSummary();
+  }
+
+  function openScreen(name) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    
+    document.getElementById('screen-' + name).classList.add('active');
+    const tabs = ['home', 'bahi', 'milk', 'add', 'list', 'summary', 'settings'];
+    const idx = tabs.indexOf(name);
+    if (idx !== -1) {
+      document.querySelectorAll('.tab-item')[idx].classList.add('active');
+    }
+
+    renderAll();
+  }
+
+  function populatePersonDropdowns() {
+    const addSelect = document.getElementById('add-person');
+    const editSelect = document.getElementById('edit-person');
+    
+    const optionsHtml = settings.persons.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+    addSelect.innerHTML = optionsHtml;
+    editSelect.innerHTML = optionsHtml;
+  }
+
+  /* ==================== INDIVIDUAL STATS CALCULATION ==================== */
+  function getDaysInSelectedMonth() {
+    const parts = currentMonth.split('-');
+    const year = parseInt(parts[0]);
+    const month = parseInt(parts[1]);
+    return new Date(year, month, 0).getDate();
+  }
+
+  function getMilkForDay(dayStr) {
+    const dayData = {};
+    const hasOverride = settings.milkOverrides && settings.milkOverrides[dayStr];
+
+    settings.persons.forEach(p => {
+      if (hasOverride && hasOverride[p.name] !== undefined) {
+        dayData[p.name] = hasOverride[p.name];
+      } else {
+        // Look in legacy expenses
+        const record = expenses.find(e => e.date === dayStr && e.category.includes(p.name));
+        if (record && record.qty !== undefined) {
+          dayData[p.name] = record.qty;
+        } else {
+          dayData[p.name] = p.defaultMilk !== undefined ? p.defaultMilk : 3;
+        }
+      }
+    });
+
+    return { data: dayData, isModified: !!hasOverride };
+  }
+
+  function getIndividualStats(personName) {
+    const daysCount = getDaysInSelectedMonth();
+    let totalMilkQty = 0;
+
+    for (let d = 1; d <= daysCount; d++) {
+      const dayStr = `${currentMonth}-${String(d).padStart(2, '0')}`;
+      const m = getMilkForDay(dayStr);
+      totalMilkQty += (m.data[personName] || 0);
+    }
+
+    const price = settings.milkUnitPrice;
+    const totalPersonsCount = settings.persons.length || 2;
+    const subShare = settings.subscriptionFee / totalPersonsCount;
+    const milkCost = (totalMilkQty * price) + (totalMilkQty > 0 ? subShare : 0);
+
+    let miscCost = 0;
+    const personExpenses = expenses.filter(e => e.date && e.date.startsWith(currentMonth) && e.person === personName && !e.category.includes('Milk'));
+    personExpenses.forEach(e => {
+      miscCost += e.amount;
+    });
+
+    const totalSpent = milkCost + miscCost;
+
+    return {
+      name: personName,
+      totalMilkQty,
+      milkCost,
+      miscCost,
+      totalSpent,
+      expenses: personExpenses
+    };
+  }
+
+  /* ==================== 1. HOME SCREEN ==================== */
+  function renderDashboard() {
+    let grandTotal = 0;
+    let ghosiaTotal = 0;
+    let groceriesTotal = 0;
+
+    const indGrid = document.getElementById('home-individuals-grid');
+    indGrid.innerHTML = '';
+
+    settings.persons.forEach(p => {
+      const stats = getIndividualStats(p.name);
+      grandTotal += stats.totalSpent;
+      if (p.name === 'Ghosia') ghosiaTotal = stats.totalSpent;
+
+      const badgeClass = p.name === 'Ghosia' ? 'badge-ghosia' : (p.name === 'Guddo' ? 'badge-guddo' : 'badge-other');
+      
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.style.margin = '0';
+      card.style.cursor = 'pointer';
+      card.onclick = () => {
+        activePersonName = p.name;
+        openScreen('bahi');
+      };
+      card.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <span class="badge-tag ${badgeClass}">${p.name}</span>
+          <span style="font-size:10px; color:var(--text-sec);">Bahi Khata ➔</span>
+        </div>
+        <div style="font-size: 20px; font-weight:700; color:#fff; margin: 4px 0;">₹${stats.totalSpent.toLocaleString()}</div>
+        <div style="font-size: 11px; color: var(--text-sec);">Milk: ${stats.totalMilkQty}L (₹${stats.milkCost.toFixed(0)})</div>
+      `;
+      indGrid.appendChild(card);
+    });
+
+    // Add Groceries
+    expenses.filter(e => e.date && e.date.startsWith(currentMonth) && e.category === 'Groceries').forEach(e => {
+      groceriesTotal += e.amount;
+    });
+    grandTotal += groceriesTotal;
+
+    const salaryLeft = settings.totalSalary - ghosiaTotal;
+
+    document.getElementById('dash-total-exp').innerText = '₹' + grandTotal.toLocaleString();
+    document.getElementById('dash-salary-info').innerText = 'Salary Left (Transfer): ₹' + salaryLeft.toLocaleString();
+
+    // Recent
+    const recent = expenses.filter(e => e.date && e.date.startsWith(currentMonth) && !e.category.includes('Milk')).slice(0, 5);
+    const recBox = document.getElementById('home-recent-list');
+    if (recent.length === 0) {
+      recBox.innerHTML = '<p style="font-size:12px; color:var(--text-sec); text-align:center; padding:10px 0;">No manual expenses added this month.</p>';
+      return;
+    }
+    recBox.innerHTML = recent.map(e => `
+      <div class="exp-item">
+        <div class="left">
+          <h4>${e.category}</h4>
+          <p><span class="badge-tag badge-other">${e.person}</span> • ${e.date} ${e.note ? '• ' + e.note : ''}</p>
+        </div>
+        <div class="right">
+          <div class="amount">₹${e.amount}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  /* ==================== 2. BAHI KHATA (INDIVIDUAL LEDGER) ==================== */
+  function renderBahiKhata() {
+    const pillsContainer = document.getElementById('bahi-person-pills');
+    pillsContainer.innerHTML = '';
+
+    settings.persons.forEach(p => {
+      const pill = document.createElement('button');
+      pill.className = 'person-pill' + (p.name === activePersonName ? ' active' : '');
+      pill.innerText = p.name;
+      pill.onclick = () => {
+        activePersonName = p.name;
+        renderBahiKhata();
+      };
+      pillsContainer.appendChild(pill);
+    });
+
+    const addPill = document.createElement('button');
+    addPill.className = 'person-pill add-new';
+    addPill.innerText = '+ Naya Shakhs';
+    addPill.onclick = openAddPersonModal;
+    pillsContainer.appendChild(addPill);
+
+    // Active Person Stats
+    const stats = getIndividualStats(activePersonName);
+    document.getElementById('bahi-person-name').innerText = `${stats.name}'s Bahi Khata`;
+    document.getElementById('bahi-person-total').innerText = '₹' + stats.totalSpent.toLocaleString();
+    document.getElementById('bahi-person-sub').innerText = `Milk: ${stats.totalMilkQty} Liters (₹${stats.milkCost.toFixed(0)}) • Misc: ₹${stats.miscCost.toLocaleString()}`;
+
+    // Active Person Settings Display
+    const pObj = settings.persons.find(p => p.name === activePersonName);
+    document.getElementById('bahi-def-milk-display').innerText = `${pObj ? pObj.defaultMilk : 3} Liters / Day`;
+    document.getElementById('btn-delete-person').style.display = (settings.persons.length > 1) ? 'block' : 'none';
+
+    // Render Entries
+    const entriesBox = document.getElementById('bahi-entries-list');
+    
+    // Virtual Milk Entry at top
+    let entriesHtml = `
+      <div class="exp-item" style="border-left: 3px solid var(--secondary);">
+        <div class="left">
+          <h4>🥛 Monthly Milk Total</h4>
+          <p>${stats.totalMilkQty} Liters @ ₹${settings.milkUnitPrice}/L + Sub split</p>
+        </div>
+        <div class="right">
+          <div class="amount">₹${stats.milkCost.toFixed(0)}</div>
+        </div>
+      </div>
+    `;
+
+    if (stats.expenses.length === 0) {
+      entriesHtml += '<p style="text-align:center; color:var(--text-sec); padding:16px 0; font-size:12px;">No other expenses for this person this month.</p>';
+    } else {
+      entriesHtml += stats.expenses.map(e => `
+        <div class="exp-item">
+          <div class="left">
+            <h4>${e.category}</h4>
+            <p>${e.date} ${e.note ? '• ' + e.note : ''}</p>
+          </div>
+          <div class="right">
+            <div class="amount">₹${e.amount}</div>
+            <button class="btn-icon" style="color:var(--secondary);" onclick="openEditModal('${e.id}')">✏️</button>
+            <button class="btn-icon" style="color:var(--error);" onclick="deleteExpense('${e.id}')">🗑️</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    entriesBox.innerHTML = entriesHtml;
+  }
+
+  function quickAddForActivePerson() {
+    document.getElementById('add-person').value = activePersonName;
+    openScreen('add');
+  }
+
+  function shareBahiKhata() {
+    const stats = getIndividualStats(activePersonName);
+    let text = `📖 *BAHI KHATA STATEMENT - ${stats.name.toUpperCase()}*\n`;
+    text += `Month: ${currentMonth}\n`;
+    text += `--------------------------------\n`;
+    text += `🥛 Milk Total: ${stats.totalMilkQty}L = ₹${stats.milkCost.toFixed(0)}\n`;
+    text += `🛒 Other Expenses: ₹${stats.miscCost}\n`;
+    text += `💰 *TOTAL KUL KHARCHA: ₹${stats.totalSpent.toFixed(0)}*\n`;
+    text += `--------------------------------\n`;
+    stats.expenses.forEach(e => {
+      text += `• ${e.date}: ${e.category} - ₹${e.amount} (${e.note || ''})\n`;
+    });
+
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text);
+      alert('Bahi-Khata statement copy ho gaya! Aap WhatsApp par paste kar sakte hain.');
+    } else {
+      alert(text);
+    }
+  }
+
+  /* ==================== PERSON MANAGEMENT ==================== */
+  function openAddPersonModal() {
+    document.getElementById('new-person-name').value = '';
+    document.getElementById('new-person-milk').value = '3';
+    document.getElementById('add-person-modal').style.display = 'flex';
+  }
+
+  function closeAddPersonModal() {
+    document.getElementById('add-person-modal').style.display = 'none';
+  }
+
+  function saveNewPerson() {
+    const name = document.getElementById('new-person-name').value.trim();
+    const milk = parseFloat(document.getElementById('new-person-milk').value) || 3;
+
+    if (!name) {
+      alert('Please enter a name!');
+      return;
+    }
+
+    if (settings.persons.some(p => p.name.toLowerCase() === name.toLowerCase())) {
+      alert('Ye shakhs pehle se shamil hai!');
+      return;
+    }
+
+    settings.persons.push({
+      id: 'p_' + Date.now().toString(36),
+      name: name,
+      defaultMilk: milk,
+      role: 'member'
+    });
+
+    activePersonName = name;
+    saveData();
+    closeAddPersonModal();
+    renderAll();
+  }
+
+  function editCurrentPersonSettings() {
+    const pObj = settings.persons.find(p => p.name === activePersonName);
+    if (!pObj) return;
+
+    document.getElementById('edit-person-name').value = pObj.name;
+    document.getElementById('edit-person-milk').value = pObj.defaultMilk !== undefined ? pObj.defaultMilk : 3;
+    document.getElementById('edit-person-modal').style.display = 'flex';
+  }
+
+  function closeEditPersonModal() {
+    document.getElementById('edit-person-modal').style.display = 'none';
+  }
+
+  function saveEditedPerson() {
+    const pObj = settings.persons.find(p => p.name === activePersonName);
+    if (!pObj) return;
+
+    const newName = document.getElementById('edit-person-name').value.trim();
+    const newMilk = parseFloat(document.getElementById('edit-person-milk').value) || 3;
+
+    if (!newName) return;
+
+    // Update expenses if name changed
+    if (newName !== pObj.name) {
+      expenses.forEach(e => {
+        if (e.person === pObj.name) e.person = newName;
+      });
+      pObj.name = newName;
+      activePersonName = newName;
+    }
+    pObj.defaultMilk = newMilk;
+
+    saveData();
+    closeEditPersonModal();
+    renderAll();
+  }
+
+  function deleteCurrentPerson() {
+    if (settings.persons.length <= 1) {
+      alert('Kam se kam ek shakhs hona zaroori hai.');
+      return;
+    }
+
+    if (confirm(`Kya aap ${activePersonName} ko Bahi Khata se hatana chahte hain?`)) {
+      settings.persons = settings.persons.filter(p => p.name !== activePersonName);
+      activePersonName = settings.persons[0].name;
+      saveData();
+      renderAll();
+    }
+  }
+
+  /* ==================== 3. MILK TRACKER ==================== */
+  function renderMilkCalendar() {
+    const daysCount = getDaysInSelectedMonth();
+    const grid = document.getElementById('milk-calendar-grid');
+    grid.innerHTML = '';
+
+    const personTotals = {};
+    settings.persons.forEach(p => personTotals[p.name] = 0);
+
+    for (let d = 1; d <= daysCount; d++) {
+      const dayStr = `${currentMonth}-${String(d).padStart(2, '0')}`;
+      const m = getMilkForDay(dayStr);
+
+      let daySum = 0;
+      settings.persons.forEach(p => {
+        const qty = m.data[p.name] || 0;
+        personTotals[p.name] += qty;
+        daySum += qty;
+      });
+
+      const cell = document.createElement('div');
+      cell.className = 'cal-day ' + (m.isModified ? 'modified' : 'default-3');
+      cell.innerHTML = `
+        <span class="d-num">${d}</span>
+        <span class="d-sub">${daySum}L</span>
+      `;
+      cell.onclick = () => openMilkDayModal(dayStr, m.data);
+      grid.appendChild(cell);
+    }
+
+    const price = settings.milkUnitPrice;
+    const subSplit = settings.subscriptionFee / (settings.persons.length || 2);
+    let grandMilkCost = 0;
+
+    const breakdownBox = document.getElementById('milk-individual-breakdown');
+    breakdownBox.innerHTML = settings.persons.map(p => {
+      const qty = personTotals[p.name] || 0;
+      const cost = (qty * price) + (qty > 0 ? subSplit : 0);
+      grandMilkCost += cost;
+      return `
+        <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px;">
+          <span>${p.name} Milk:</span>
+          <strong>${qty} L (₹${cost.toFixed(0)})</strong>
+        </div>
+      `;
+    }).join('');
+
+    document.getElementById('milk-total-both').innerText = `₹${grandMilkCost.toFixed(0)}`;
+  }
+
+  function openMilkDayModal(dayStr, dayData) {
+    activeMilkDate = dayStr;
+    document.getElementById('milk-modal-title').innerText = '🥛 Milk: ' + dayStr;
+    
+    const container = document.getElementById('modal-milk-persons-inputs');
+    container.innerHTML = settings.persons.map(p => `
+      <div class="form-group">
+        <label class="form-label">${p.name} Qty (Liters)</label>
+        <input type="number" class="form-input modal-day-qty-input" data-person="${p.name}" value="${dayData[p.name] !== undefined ? dayData[p.name] : (p.defaultMilk || 3)}" step="0.5">
+      </div>
+    `).join('');
+
+    document.getElementById('milk-day-modal').style.display = 'flex';
+  }
+
+  function closeMilkDayModal() {
+    document.getElementById('milk-day-modal').style.display = 'none';
+  }
+
+  function saveMilkDayModal() {
+    if (!settings.milkOverrides) settings.milkOverrides = {};
+    const dayData = {};
+
+    document.querySelectorAll('.modal-day-qty-input').forEach(input => {
+      const pName = input.getAttribute('data-person');
+      dayData[pName] = parseFloat(input.value) || 0;
+    });
+
+    settings.milkOverrides[activeMilkDate] = dayData;
+    saveData();
+    closeMilkDayModal();
+    renderAll();
+  }
+
+  function updateMilkPrice(val) {
+    settings.milkUnitPrice = parseFloat(val) || 44;
+    saveData();
+    renderAll();
+  }
+
+  function updateSubFee(val) {
+    settings.subscriptionFee = parseFloat(val) || 399;
+    saveData();
+    renderAll();
+  }
+
+  function updateSalary(val) {
+    settings.totalSalary = parseFloat(val) || 60000;
+    saveData();
+    renderAll();
+  }
+
+  function updateSheetId(val) {
+    settings.sheetId = val;
+    saveData();
+  }
+
+  /* ==================== 4. ADD & EDIT EXPENSES ==================== */
+  function submitAddExpense() {
+    const amount = parseFloat(document.getElementById('add-amount').value);
+    const category = document.getElementById('add-category').value;
+    const person = document.getElementById('add-person').value;
+    const date = document.getElementById('add-date').value || new Date().toISOString().split('T')[0];
+    const note = document.getElementById('add-note').value;
+
+    if (!amount || isNaN(amount)) {
+      alert('Please enter a valid amount!');
+      return;
+    }
+
+    const exp = {
+      id: Date.now().toString(36) + Math.random().toString(36).substr(2, 4),
+      amount,
+      category,
+      person,
+      date,
+      note
+    };
+
+    expenses.unshift(exp);
+    saveData();
+    document.getElementById('add-amount').value = '';
+    document.getElementById('add-note').value = '';
+    openScreen('list');
+  }
+
+  function renderExpensesList() {
+    const container = document.getElementById('full-expenses-container');
+    const query = (document.getElementById('search-filter').value || '').toLowerCase();
+    
+    const filtered = expenses.filter(e => {
+      const matchMonth = e.date && e.date.startsWith(currentMonth);
+      const matchQuery = !query || 
+        (e.category && e.category.toLowerCase().includes(query)) ||
+        (e.note && e.note.toLowerCase().includes(query)) ||
+        (e.person && e.person.toLowerCase().includes(query));
+      return matchMonth && matchQuery;
+    });
+
+    if (filtered.length === 0) {
+      container.innerHTML = '<p style="text-align:center; color:var(--text-sec); padding:30px 0;">No expenses found for this month.</p>';
+      return;
+    }
+
+    container.innerHTML = filtered.map(e => `
+      <div class="exp-item">
+        <div class="left">
+          <h4>${e.category}</h4>
+          <p><span class="badge-tag badge-other">${e.person}</span> • ${e.date} ${e.note ? '• ' + e.note : ''}</p>
+        </div>
+        <div class="right">
+          <div class="amount">₹${e.amount}</div>
+          <button class="btn-icon" style="color:var(--secondary);" onclick="openEditModal('${e.id}')">✏️</button>
+          <button class="btn-icon" style="color:var(--error);" onclick="deleteExpense('${e.id}')">🗑️</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function openEditModal(id) {
+    const item = expenses.find(e => e.id === id);
+    if (!item) return;
+
+    document.getElementById('edit-id').value = item.id;
+    document.getElementById('edit-amount').value = item.amount;
+    document.getElementById('edit-category').value = item.category;
+    document.getElementById('edit-person').value = item.person;
+    document.getElementById('edit-date').value = item.date;
+    document.getElementById('edit-note').value = item.note || '';
+
+    document.getElementById('edit-modal').style.display = 'flex';
+  }
+
+  function closeEditModal() {
+    document.getElementById('edit-modal').style.display = 'none';
+  }
+
+  function saveEditedExpense() {
+    const id = document.getElementById('edit-id').value;
+    const item = expenses.find(e => e.id === id);
+    if (!item) return;
+
+    item.amount = parseFloat(document.getElementById('edit-amount').value) || item.amount;
+    item.category = document.getElementById('edit-category').value;
+    item.person = document.getElementById('edit-person').value;
+    item.date = document.getElementById('edit-date').value;
+    item.note = document.getElementById('edit-note').value;
+
+    saveData();
+    closeEditModal();
+    renderAll();
+  }
+
+  function deleteExpense(id) {
+    if (confirm('Delete this expense entry?')) {
+      expenses = expenses.filter(e => e.id !== id);
+      saveData();
+      renderAll();
+    }
+  }
+
+  /* ==================== 5. SUMMARY ==================== */
+  function renderSummary() {
+    let grandMilkTotal = 0;
+    let groceries = 0;
+    let ghosiaTotal = 0;
+
+    const indSummaryBox = document.getElementById('summary-individual-breakdown');
+    indSummaryBox.innerHTML = settings.persons.map(p => {
+      const stats = getIndividualStats(p.name);
+      grandMilkTotal += stats.milkCost;
+      if (p.name === 'Ghosia') ghosiaTotal = stats.totalSpent;
+      return `
+        <div style="display:flex; justify-content:space-between; font-size:14px; margin-top:8px;">
+          <span>${p.name} Kul Kharcha:</span>
+          <strong>₹${stats.totalSpent.toLocaleString()}</strong>
+        </div>
+      `;
+    }).join('');
+
+    expenses.filter(e => e.date && e.date.startsWith(currentMonth) && e.category === 'Groceries').forEach(e => {
+      groceries += e.amount;
+    });
+
+    const transfer = settings.totalSalary - ghosiaTotal;
+
+    document.getElementById('sum-salary-val').innerText = '₹' + settings.totalSalary.toLocaleString();
+    document.getElementById('sum-ghosia-exp').innerText = '₹' + ghosiaTotal.toLocaleString();
+    document.getElementById('sum-transfer-to-ghosia').innerText = '₹' + transfer.toLocaleString();
+    document.getElementById('sum-milk-total').innerText = '₹' + grandMilkTotal.toFixed(0);
+    document.getElementById('sum-groceries-total').innerText = '₹' + groceries.toLocaleString();
+  }
+
+  /* ==================== 6. GOOGLE AUTH & CLOUD BACKUP ==================== */
+  function openGoogleAuthModal() {
+    openScreen('settings');
+  }
+
+  async function saveToGoogleDrive() {
+    const backupData = JSON.stringify({ settings, expenses, exportedAt: new Date().toISOString() }, null, 2);
+    const fileName = `HouseSpend_Backup_${currentMonth}.json`;
+
+    // Try native Web Share API (Android native share sheet with 'Save to Drive')
+    if (navigator.share) {
+      try {
+        const file = new File([backupData], fileName, { type: 'application/json' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            files: [file],
+            title: 'House Spend Backup',
+            text: 'House Spend Backup File - Google Drive me save karein'
+          });
+          updateLastBackupTimestamp();
+          return;
+        }
+      } catch (err) {
+        if (err.name !== 'AbortError') console.warn('Share error:', err);
+      }
+    }
+
+    // Fallback: Direct Download
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(backupData);
+    const dlAnchorElem = document.createElement('a');
+    dlAnchorElem.setAttribute("href", dataStr);
+    dlAnchorElem.setAttribute("download", fileName);
+    dlAnchorElem.click();
+    updateLastBackupTimestamp();
+    alert('✅ Backup file download ho gayi! Is file ko Google Drive mein upload / save kar lein.');
+  }
+
+  function updateLastBackupTimestamp() {
+    const timestamp = new Date().toLocaleString();
+    localStorage.setItem('hs_last_cloud_backup', timestamp);
+    if (settings.googleUser) {
+      settings.googleUser.lastBackup = timestamp;
+      saveData();
+      updateCloudStatusUI();
+    }
+  }
+
+  function openGoogleAccountPrompt() {
+    const current = (settings.googleUser && settings.googleUser.email) || '';
+    const email = prompt('Apna Gmail address likhein (Google Drive Backup link karne ke liye):', current || 'pasha@gmail.com');
+    if (email && email.trim()) {
+      settings.googleUser = {
+        email: email.trim(),
+        name: email.trim().split('@')[0],
+        linkedAt: new Date().toLocaleDateString()
+      };
+      saveData();
+      updateCloudStatusUI();
+      alert(`✅ Google Drive successfully linked with ${email}! Ab aap 'Google Drive Mein Backup Save Karein' dabayein.`);
+    }
+  }
+
+  function restoreFromGoogleCloud() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const restored = JSON.parse(event.target.result);
+          if (restored.settings) settings = restored.settings;
+          if (restored.expenses) expenses = restored.expenses;
+          saveData();
+          renderAll();
+          alert('✅ Data successfully restored from backup!');
+        } catch (err) {
+          alert('Invalid backup file.');
+        }
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  }
+
+  function exportDataBackup() {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ settings, expenses, exportedAt: new Date().toISOString() }, null, 2));
+    const dlAnchorElem = document.createElement('a');
+    dlAnchorElem.setAttribute("href", dataStr);
+    dlAnchorElem.setAttribute("download", `house_spend_cloud_backup_${currentMonth}.json`);
+    dlAnchorElem.click();
+  }
+
+  /* ==================== UTILS ==================== */
+  function saveData() {
+    localStorage.setItem('hs_settings_v3', JSON.stringify(settings));
+    localStorage.setItem('hs_expenses_v3', JSON.stringify(expenses));
+  }
+
+  function resetData() {
+    if (confirm('Original Excel data reload karein? Current changes reset ho jayengi.')) {
+      localStorage.removeItem('hs_expenses_v3');
+      localStorage.removeItem('hs_settings_v3');
+      location.reload();
+    }
+  }
+
+  function openInstallGuide() {
+    document.getElementById('install-guide-modal').style.display = 'flex';
+  }
+
+  function closeInstallGuide() {
+    document.getElementById('install-guide-modal').style.display = 'none';
+  }
+
+  window.onload = init;
+</script>
+</body>
+</html>
