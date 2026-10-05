@@ -414,6 +414,29 @@
       <button class="btn-primary" style="background:var(--success);" onclick="exportDataBackup()">📥 Export Offline Backup File (JSON)</button>
     </div>
 
+    <!-- Over-The-Air (OTA) Live Update & Version Card -->
+    <div class="card" style="border-color: rgba(0, 210, 255, 0.4); background: linear-gradient(180deg, var(--card) 0%, rgba(0, 210, 255, 0.05) 100%);">
+      <div class="card-title" style="color:var(--secondary); display:flex; justify-content:space-between; align-items:center;">
+        <span>🔄 Auto-Update & Version</span>
+        <span id="ota-version-badge" style="font-size:10px; background:rgba(0,210,255,0.2); color:var(--secondary); padding:2px 8px; border-radius:10px; font-weight:700;">v1.1.0 OTA</span>
+      </div>
+      <p style="font-size:12px; color:#fff; margin:6px 0 2px; font-weight:600;">
+        ⚡ Live Over-The-Air (OTA) Updates Enabled
+      </p>
+      <p style="font-size:11px; color:var(--text-sec); line-height:1.4; margin-bottom:10px;">
+        Aap jab bhi computer se app update karenge, sabhi users ke phone mein bina dobara install kiye app khud-ba-khud update ho jayegi.
+      </p>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-sec" style="flex:1; border-color:var(--secondary); color:var(--secondary); padding:9px 12px; font-size:12px; font-weight:700; border-radius:10px;" onclick="checkAppUpdates(true)">
+          🔄 Check For Updates
+        </button>
+        <button class="btn-sec" style="padding:9px 12px; font-size:12px; border-radius:10px;" onclick="forceAppRefresh()">
+          ⚡ Fresh Reload
+        </button>
+      </div>
+      <div id="ota-status-msg" style="font-size:11px; color:var(--text-sec); margin-top:8px;"></div>
+    </div>
+
     <div class="card">
       <div class="card-title">Reset</div>
       <button class="btn-sec" style="color:var(--error); border-color:var(--error); width:100%;" onclick="resetData()">⚠️ Reset To Original Excel Data</button>
@@ -649,6 +672,7 @@
 
     updateCloudStatusUI();
     renderAll();
+    setTimeout(() => { checkAppUpdates(false); }, 1500);
   }
 
   function buildMonthSelector() {
@@ -1375,6 +1399,75 @@
     dlAnchorElem.setAttribute("href", dataStr);
     dlAnchorElem.setAttribute("download", `house_spend_cloud_backup_${currentMonth}.json`);
     dlAnchorElem.click();
+  }
+
+  /* ==================== OTA APP UPDATES ==================== */
+  const APP_VERSION = "1.1.0";
+  const VERSION_CHECK_URL = "https://pasha22784-maker.github.io/house-spend-app/version.json";
+
+  function checkAppUpdates(userTriggered = false) {
+    const statusEl = document.getElementById('ota-status-msg');
+    const badgeEl = document.getElementById('ota-version-badge');
+
+    if (userTriggered && statusEl) {
+      statusEl.innerHTML = '<span style="color:var(--secondary);">⏳ Checking for latest updates...</span>';
+    }
+
+    // 1. Android Native App interface check
+    if (window.AndroidNative && typeof window.AndroidNative.checkUpdatesManually === 'function') {
+      window.AndroidNative.checkUpdatesManually();
+      if (statusEl) {
+        statusEl.innerHTML = '<span style="color:var(--success);">✅ Native updater active! Naye updates check kiye ja rahe hain...</span>';
+      }
+      return;
+    }
+
+    // 2. Web / Browser / PWA check
+    fetch(VERSION_CHECK_URL + '?t=' + Date.now(), { cache: 'no-cache' })
+      .then(res => {
+        if (!res.ok) throw new Error('Network error');
+        return res.json();
+      })
+      .then(data => {
+        const remoteVer = data.version || 0;
+        const localVer = parseInt(localStorage.getItem('hs_ota_version') || '0', 10);
+        if (badgeEl && data.versionName) {
+          badgeEl.innerText = 'v' + data.versionName;
+        }
+
+        if (remoteVer > localVer && localVer > 0) {
+          localStorage.setItem('hs_ota_version', remoteVer);
+          if (confirm(`🎉 Naya update aa gaya hai (${data.versionName || ''})! Kya aap abhi naya version load karna chahte hain?`)) {
+            forceAppRefresh();
+          }
+        } else {
+          localStorage.setItem('hs_ota_version', remoteVer);
+          if (userTriggered && statusEl) {
+            statusEl.innerHTML = `<span style="color:var(--success);">✅ App bilkul latest version par hai (${data.versionName || 'v1.1.0'})</span>`;
+          }
+        }
+      })
+      .catch(err => {
+        if (userTriggered && statusEl) {
+          statusEl.innerHTML = '<span style="color:var(--warning);">⚠️ Server se connect nahi ho saka. Internet check karein.</span>';
+        }
+      });
+  }
+
+  function forceAppRefresh() {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        for (let reg of regs) reg.update();
+      });
+    }
+    if ('caches' in window) {
+      caches.keys().then(names => {
+        names.forEach(name => caches.delete(name));
+      });
+    }
+    setTimeout(() => {
+      window.location.reload(true);
+    }, 300);
   }
 
   /* ==================== UTILS ==================== */
