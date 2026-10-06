@@ -657,6 +657,17 @@ function doPost(e) {
       sheet.getRange(2, 1, rows.length, 6).setValues(rows);
     }
     sheet.autoResizeColumns(1, 6);
+
+    // Overwrite same master file in Google Drive (No duplicate files!)
+    try {
+      var files = DriveApp.getFilesByName("HouseSpend_Master_Backup.json");
+      if (files.hasNext()) {
+        files.next().setContent(JSON.stringify(payload, null, 2));
+      } else {
+        DriveApp.createFile("HouseSpend_Master_Backup.json", JSON.stringify(payload, null, 2));
+      }
+    } catch (dErr) {}
+
     return ContentService.createTextOutput(JSON.stringify({ status: "success", count: rows.length })).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ status: "error", error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
@@ -1581,8 +1592,16 @@ function doGet(e) {
     downloadBlob(blob, fileName);
     updateLastBackupTimestamp();
     if (confirm('✅ Backup file aapke mobile mein save ho gayi hai!\n\nKya aap abhi Google Drive khol kar ise upload karna chahte hain?')) {
-      window.open('https://drive.google.com/drive/u/0/my-drive', '_blank');
+      openExternalUrl('https://drive.google.com/drive/my-drive');
     }
+  }
+
+  function openExternalUrl(url) {
+    if (window.AndroidNative && typeof window.AndroidNative.openUrlInBrowser === 'function') {
+      window.AndroidNative.openUrlInBrowser(url);
+      return;
+    }
+    window.open(url, '_blank');
   }
 
   function updateLastBackupTimestamp() {
