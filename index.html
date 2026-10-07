@@ -1706,7 +1706,7 @@ function doGet(e) {
     milkUnitPrice: 44,
     subscriptionFee: 399,
     totalSalary: 60000,
-    sheetId: '',
+    sheetId: 'https://script.google.com/macros/s/AKfycbwh0668C_YjsnXa3e1ard-9TBrGC89tMC9bSZTSz09rl419BHZaVA3fdmmIfuWnuSlO/exec',
     googleUser: null,
     // List of persons with their individual properties
     persons: [
@@ -1733,6 +1733,11 @@ function doGet(e) {
       saveData();
     }
     // Ensure persons array exists
+    // Ensure Webhook URL is set to active Google Sheet Webhook
+    if (!settings.sheetId || settings.sheetId.includes('docs.google.com') || settings.sheetId.trim() === '') {
+      settings.sheetId = 'https://script.google.com/macros/s/AKfycbwh0668C_YjsnXa3e1ard-9TBrGC89tMC9bSZTSz09rl419BHZaVA3fdmmIfuWnuSlO/exec';
+      saveData();
+    }
     if (!settings.persons || settings.persons.length === 0) {
       settings.persons = defaultSettings.persons;
       saveData();
