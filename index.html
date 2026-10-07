@@ -222,6 +222,7 @@
     </div>
     <div style="display:flex; gap:6px;">
       <button class="cloud-btn" id="strip-sync-btn" onclick="triggerUniversalCloudSync()">☁️ Sync Now</button>
+      <button class="cloud-btn" style="background:rgba(255,214,0,0.18); color:#ffd600; border-color:#ffd600; font-weight:700;" onclick="openMasterStatementModal()">📄 Master Report</button>
     </div>
   </div>
 
@@ -1003,111 +1004,240 @@
           <span style="font-size:11px; font-weight:700; color:var(--secondary);">Step 3: Ye Code Paste Karein</span>
           <button class="btn-sec" style="padding:4px 8px; font-size:10px; border-color:var(--success); color:var(--success);" onclick="copyAppsScriptCode()">📋 Copy Code</button>
         </div>
-        <textarea id="apps-script-code-box" readonly style="width:100%; height:140px; background:#0b0c16; border:1px solid var(--border); border-radius:6px; color:#a5d6a7; font-family:monospace; font-size:10px; padding:8px; resize:none;">
+        <textarea id="apps-script-code-box" readonly style="width:100%; height:150px; background:#0b0c16; border:1px solid var(--border); border-radius:6px; color:#a5d6a7; font-family:monospace; font-size:10px; padding:8px; resize:none;">
 function doPost(e) {
   try {
     var payload = JSON.parse(e.postData.contents);
     var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var curMonth = payload.month || "CurrentMonth";
 
-    // 1. Ghar Kharcha Tab
+    // 1. MASTER_OVERVIEW SHEET (1-Page Executive Printable Summary)
+    var masterSheet = ss.getSheetByName("MASTER_OVERVIEW") || ss.insertSheet("MASTER_OVERVIEW", 0);
+    masterSheet.clear();
+
+    masterSheet.getRange("A1:G1").merge()
+               .setValue("📋 MASTER FINANCIAL STATEMENT & HISAB OVERVIEW (मास्टर वित्तीय हिसाब)")
+               .setBackground("#1E293B").setFontColor("#FFFFFF").setFontWeight("bold").setFontSize(14)
+               .setHorizontalAlignment("center");
+    masterSheet.getRange("A2:G2").merge()
+               .setValue("Period / Month: " + curMonth + "  |  Last Synced: " + (payload.timestamp || new Date().toLocaleString()) + "  |  Currency: INR (₹)")
+               .setBackground("#334155").setFontColor("#E2E8F0").setFontSize(10)
+               .setHorizontalAlignment("center");
+
+    var mRow = 4;
+    var salary = (payload.summary && payload.summary.salary) || 60000;
+    var totalSpent = (payload.rows || []).reduce(function(acc, r){ return acc + Number(r.amount || 0); }, 0);
+    var remaining = salary - totalSpent;
+
+    masterSheet.getRange(mRow, 1, 1, 6).merge()
+               .setValue("🏡 1. GHAR KA KHARCHA (घर का मासिक खर्च व बचत)")
+               .setBackground("#6C63FF").setFontColor("#FFFFFF").setFontWeight("bold");
+    mRow++;
+    masterSheet.getRange(mRow, 1, 1, 4)
+               .setValues([["Total Monthly Salary (कुल वेतन)", "Total Spent (कुल खर्च)", "Net Savings / Remaining (बचत / बाकी)", "Expense Status"]])
+               .setBackground("#E0E7FF").setFontWeight("bold");
+    mRow++;
+    masterSheet.getRange(mRow, 1, 1, 4)
+               .setValues([[salary, totalSpent, remaining, remaining >= 0 ? "Bachat (Surplus)" : "Ghaata (Deficit)"]])
+               .setFontWeight("bold");
+    mRow += 2;
+
+    var rData = payload.rentData || {};
+    var rRooms = rData.rooms || [];
+    var totDue = 0, totPaid = 0, totBaki = 0;
+    for (var i = 0; i < rRooms.length; i++) {
+      totDue += Number(rRooms[i].monthlyDue || 0);
+      totPaid += Number(rRooms[i].paidAmount || 0);
+      totBaki += Number(rRooms[i].balance || 0);
+    }
+    var totMaint = (rData.maintenance || []).reduce(function(acc, m){ return acc + Number(m.amount || 0); }, 0);
+    var netSurplus = totPaid - totMaint;
+
+    masterSheet.getRange(mRow, 1, 1, 6).merge()
+               .setValue("🏢 2. 8-ROOM RENTAL PROPERTY (मकान किराया व मेंटेनेंस)")
+               .setBackground("#0077B6").setFontColor("#FFFFFF").setFontWeight("bold");
+    mRow++;
+    masterSheet.getRange(mRow, 1, 1, 6)
+               .setValues([["Total Rooms", "Total Rent Due (कुल किराया)", "Rent Collected (मिला किराया)", "Balance Pending (बाकी किराया)", "Maintenance Spent (मरम्मत)", "Net Rental Surplus"]])
+               .setBackground("#E0F2FE").setFontWeight("bold");
+    mRow++;
+    masterSheet.getRange(mRow, 1, 1, 6)
+               .setValues([[rRooms.length || 8, totDue, totPaid, totBaki, totMaint, netSurplus]])
+               .setFontWeight("bold");
+    mRow += 2;
+
+    var uData = payload.udharData || {};
+    var uContacts = uData.contacts || [];
+    var uLena = 0, uDena = 0;
+    for (var j = 0; j < uContacts.length; j++) {
+      var bal = Number(uContacts[j].balance || 0);
+      if (bal > 0) uLena += bal;
+      else if (bal < 0) uDena += Math.abs(bal);
+    }
+    var uNet = uLena - uDena;
+
+    masterSheet.getRange(mRow, 1, 1, 6).merge()
+               .setValue("🤝 3. UDHAR KHATA (उधार व लेन-देन खाता)")
+               .setBackground("#7209B7").setFontColor("#FFFFFF").setFontWeight("bold");
+    mRow++;
+    masterSheet.getRange(mRow, 1, 1, 4)
+               .setValues([["Active Accounts (कुल खाते)", "Kul Lena Hai (लोगों से लेना बाकी)", "Kul Dena Hai (लोगों को देना बाकी)", "Net Position (शुद्ध बैलेंस)"]])
+               .setBackground("#F3E8FF").setFontWeight("bold");
+    mRow++;
+    masterSheet.getRange(mRow, 1, 1, 4)
+               .setValues([[uContacts.length, uLena, uDena, (uNet >= 0 ? "+" : "-") + " ₹" + Math.abs(uNet)]])
+               .setFontWeight("bold");
+    masterSheet.autoResizeColumns(1, 6);
+
+    // 2. GHAR KHARCHA TAB
     if (payload.rows && payload.rows.length > 0) {
-      var sheetName = payload.month || "HouseSpend";
-      var sheet = ss.getSheetByName(sheetName) || ss.insertSheet(sheetName);
-      sheet.clear();
-      sheet.getRange("A1:F1").setValues([["Date", "Category", "Person", "Qty (L)", "Amount (₹)", "Note"]])
-           .setBackground("#6C63FF").setFontColor("#FFFFFF").setFontWeight("bold");
-      var rows = [];
-      for (var i = 0; i < payload.rows.length; i++) {
-        var item = payload.rows[i];
-        rows.push([item.date || "", item.category || "", item.person || "", item.qty || "", item.amount || 0, item.note || ""]);
+      var gSheetName = "Ghar_" + curMonth;
+      var gSheet = ss.getSheetByName(gSheetName) || ss.insertSheet(gSheetName);
+      gSheet.clear();
+
+      gSheet.getRange("A1:G1").merge()
+            .setValue("🏡 GHAR KA KHARCHA & MAHWAR HISAB (घर का खर्च) - " + curMonth)
+            .setBackground("#6C63FF").setFontColor("#FFFFFF").setFontWeight("bold").setFontSize(13);
+      gSheet.getRange("A2:G2").merge()
+            .setValue("Salary: ₹" + salary + "  |  Total Spent: ₹" + totalSpent + "  |  Remaining Savings: ₹" + remaining)
+            .setBackground("#E0E7FF").setFontWeight("bold");
+
+      gSheet.getRange("A4:G4").setValues([["S.No", "Date (तारीख)", "Category (खर्च की मद)", "Person (किसका खर्च)", "Quantity (दूध लीटर)", "Amount (रकम ₹)", "Note / Details (विवरण)"]])
+            .setBackground("#6C63FF").setFontColor("#FFFFFF").setFontWeight("bold");
+
+      var gRows = [];
+      for (var k = 0; k < payload.rows.length; k++) {
+        var it = payload.rows[k];
+        gRows.push([k + 1, it.date || "", it.category || "", it.person || "", it.qty || "", it.amount || 0, it.note || ""]);
       }
-      if (rows.length > 0) {
-        sheet.getRange(2, 1, rows.length, 6).setValues(rows);
+      if (gRows.length > 0) {
+        gSheet.getRange(5, 1, gRows.length, 7).setValues(gRows);
       }
-      sheet.autoResizeColumns(1, 6);
+      var gTotalRow = gRows.length + 5;
+      gSheet.getRange(gTotalRow, 1, 1, 7).setValues([["TOTAL", "", "", "", "", totalSpent, ""]])
+            .setBackground("#E0E7FF").setFontWeight("bold");
+      gSheet.autoResizeColumns(1, 7);
     }
 
-    // 2. Rent Collection Tab (8 Rooms, Meter No, Maintenance & Carry Forward)
+    // 3. RENT COLLECTION TAB
     if (payload.rentData) {
-      var rData = payload.rentData;
-      var rSheetName = "Rent_" + (rData.month || "Collection");
+      var rSheetName = "Rent_" + curMonth;
       var rSheet = ss.getSheetByName(rSheetName) || ss.insertSheet(rSheetName);
       rSheet.clear();
 
-      // Title & Overview
-      rSheet.getRange("A1:H1").setValues([["Floor & Room", "Tenant Name", "Electricity Meter", "Monthly Due (₹)", "Paid (₹)", "Balance Baki (₹)", "Payment Date", "Remarks"]])
-            .setBackground("#0077B6").setFontColor("#FFFFFF").setFontWeight("bold");
-
-      var rRows = [];
-      var rooms = rData.rooms || [];
-      var totDue = 0, totPaid = 0, totBal = 0;
-      for (var r = 0; r < rooms.length; r++) {
-        var rm = rooms[r];
-        totDue += Number(rm.monthlyDue || 0);
-        totPaid += Number(rm.paidAmount || 0);
-        totBal += Number(rm.balance || 0);
-        rRows.push([rm.floor + " - " + rm.room, rm.tenant, rm.meter, rm.monthlyDue, rm.paidAmount, rm.balance, rm.date, rm.remarks]);
-      }
-      if (rRows.length > 0) {
-        rSheet.getRange(2, 1, rRows.length, 8).setValues(rRows);
-      }
-      var nextRow = rRows.length + 2;
-      rSheet.getRange(nextRow, 1, 1, 8).setValues([["TOTAL", "", "", totDue, totPaid, totBal, "", ""]])
+      rSheet.getRange("A1:I1").merge()
+            .setValue("🏢 8-ROOM RENTAL PROPERTY REGISTER (मकान किराया व मेंटेनेंस) - " + curMonth)
+            .setBackground("#0077B6").setFontColor("#FFFFFF").setFontWeight("bold").setFontSize(13);
+      rSheet.getRange("A2:I2").merge()
+            .setValue("Expected Rent: ₹" + totDue + "  |  Collected: ₹" + totPaid + "  |  Pending Baki: ₹" + totBaki + "  |  Maintenance: ₹" + totMaint + "  |  Net Surplus: ₹" + netSurplus)
             .setBackground("#E0F2FE").setFontWeight("bold");
 
-      // Maintenance Section
-      nextRow += 2;
-      rSheet.getRange(nextRow, 1, 1, 4).setValues([["House Maintenance & Repairs", "", "", ""]])
+      rSheet.getRange("A4:I4").setValues([["Floor (मंज़िल)", "Room (कमरा)", "Tenant Name (किरायेदार)", "Meter No (मीटर नंबर)", "Monthly Due (मासिक ₹)", "Paid (मिला ₹)", "Balance Due (बाकी ₹)", "Payment Date (तारीख)", "Remarks / Mode (रिमार्क्स)"]])
+            .setBackground("#0077B6").setFontColor("#FFFFFF").setFontWeight("bold");
+
+      var rentTableRows = [];
+      for (var r = 0; r < rRooms.length; r++) {
+        var rm = rRooms[r];
+        rentTableRows.push([rm.floor, rm.room, rm.tenant, rm.meter, rm.monthlyDue, rm.paidAmount, rm.balance, rm.date, rm.remarks]);
+      }
+      if (rentTableRows.length > 0) {
+        rSheet.getRange(5, 1, rentTableRows.length, 9).setValues(rentTableRows);
+      }
+      var rTotRow = rentTableRows.length + 5;
+      rSheet.getRange(rTotRow, 1, 1, 9).setValues([["TOTAL 8 ROOMS", "", "", "", totDue, totPaid, totBaki, "", ""]])
+            .setBackground("#E0F2FE").setFontWeight("bold");
+
+      var mHeadRow = rTotRow + 2;
+      rSheet.getRange(mHeadRow, 1, 1, 4).merge()
+            .setValue("🛠️ HOUSE MAINTENANCE & REPAIRS LOG (मकान मरम्मत व रखरखाव खर्च)")
             .setBackground("#FF9800").setFontColor("#FFFFFF").setFontWeight("bold");
-      nextRow += 1;
-      rSheet.getRange(nextRow, 1, 1, 4).setValues([["Date", "Category", "Description", "Amount (₹)"]])
+      mHeadRow++;
+      rSheet.getRange(mHeadRow, 1, 1, 4).setValues([["Date (तारीख)", "Category (काम की मद)", "Description / Mistri (दुकान/मिस्त्री विवरण)", "Amount (खर्च रकम ₹)"]])
             .setBackground("#FFE0B2").setFontWeight("bold");
-      var maint = rData.maintenance || [];
-      var mRows = [];
-      var totMaint = 0;
-      for (var m = 0; m < maint.length; m++) {
-        totMaint += Number(maint[m].amount || 0);
-        mRows.push([maint[m].date || "", maint[m].category || "", maint[m].desc || "", maint[m].amount || 0]);
+      var maintItems = rData.maintenance || [];
+      var maintRows = [];
+      for (var m = 0; m < maintItems.length; m++) {
+        maintRows.push([maintItems[m].date || "", maintItems[m].category || "", maintItems[m].desc || "", maintItems[m].amount || 0]);
       }
-      if (mRows.length > 0) {
-        rSheet.getRange(nextRow + 1, 1, mRows.length, 4).setValues(mRows);
-        nextRow += mRows.length + 1;
-      } else {
-        nextRow += 1;
+      if (maintRows.length > 0) {
+        rSheet.getRange(mHeadRow + 1, 1, maintRows.length, 4).setValues(maintRows);
+        mHeadRow += maintRows.length;
       }
-      rSheet.getRange(nextRow, 1, 1, 4).setValues([["Total Maintenance", "", "", totMaint]])
+      mHeadRow++;
+      rSheet.getRange(mHeadRow, 1, 1, 4).setValues([["TOTAL MAINTENANCE SPENT", "", "", totMaint]])
             .setBackground("#FFE0B2").setFontWeight("bold");
 
-            // 3. Udhar Khata (लेन-देन) Tab
-      if (payload.udharData && payload.udharData.contacts && payload.udharData.contacts.length > 0) {
-        var uSheet = ss.getSheetByName("Udhar_Khata") || ss.insertSheet("Udhar_Khata");
-        uSheet.clear();
-        uSheet.getRange("A1:G1").setValues([["Shakhs Name", "Phone", "Note", "Kul Diya (₹)", "Kul Mila (₹)", "Net Balance (₹)", "Status"]])
-              .setBackground("#7209B7").setFontColor("#FFFFFF").setFontWeight("bold");
-        var uRows = [];
-        var uContacts = payload.udharData.contacts || [];
-        for (var u = 0; u < uContacts.length; u++) {
-          var uc = uContacts[u];
-          uRows.push([uc.name, uc.phone, uc.note, uc.totalGave, uc.totalGot, uc.balance, uc.status]);
-        }
-        if (uRows.length > 0) {
-          uSheet.getRange(2, 1, uRows.length, 7).setValues(uRows);
-        }
-        uSheet.autoResizeColumns(1, 7);
-      }
-
-      // Carry forward
       if (rData.annualSummary) {
-        nextRow += 2;
-        rSheet.getRange(nextRow, 1, 1, 2).setValues([["Last Year Balance", rData.annualSummary.lastYearBal || 0]]);
-        nextRow += 1;
-        rSheet.getRange(nextRow, 1, 1, 2).setValues([["Next Year Carry Forward Balance", rData.annualSummary.closingBalance || 0]])
-              .setFontWeight("bold");
+        var aHeadRow = mHeadRow + 2;
+        rSheet.getRange(aHeadRow, 1, 1, 2).setValues([["Last Year Balance (पिछला बैलेंस)", rData.annualSummary.lastYearBal || 0]]).setFontWeight("bold");
+        rSheet.getRange(aHeadRow + 1, 1, 1, 2).setValues([["Next Year Carry Forward Balance (अगले साल जाने वाला बैलेंस)", rData.annualSummary.closingBalance || 0]]).setBackground("#D1FAE5").setFontWeight("bold");
       }
-      rSheet.autoResizeColumns(1, 8);
+      rSheet.autoResizeColumns(1, 9);
     }
 
-    // Overwrite Master Backup in Google Drive
+    // 4. UDHAR KHATA TAB
+    if (payload.udharData && payload.udharData.contacts && payload.udharData.contacts.length > 0) {
+      var uSheet = ss.getSheetByName("Udhar_Khata") || ss.insertSheet("Udhar_Khata");
+      uSheet.clear();
+
+      uSheet.getRange("A1:H1").merge()
+            .setValue("🤝 UDHAR KHATA & LEN-DEN REGISTER (उधार व लेन-देन खाता)")
+            .setBackground("#7209B7").setFontColor("#FFFFFF").setFontWeight("bold").setFontSize(13);
+      uSheet.getRange("A2:H2").merge()
+            .setValue("Kul Lena Hai (बाकी लेना): ₹" + uLena + "  |  Kul Dena Hai: ₹" + uDena + "  |  Net Position: " + (uNet >= 0 ? "+" : "-") + " ₹" + Math.abs(uNet))
+            .setBackground("#F3E8FF").setFontWeight("bold");
+
+      uSheet.getRange("A4:H4").setValues([["S.No", "Person Name (नाम)", "Mobile (फोन नंबर)", "Relation / Note (पहचान/रिश्ता)", "Kul Diya (कुल उधार दिया ₹)", "Kul Mila (कुल वापस मिला ₹)", "Net Balance (बाकी रकम ₹)", "Status (स्थिति)"]])
+            .setBackground("#7209B7").setFontColor("#FFFFFF").setFontWeight("bold");
+
+      var uRows = [];
+      var totDiya = 0, totMila = 0;
+      for (var u = 0; u < uContacts.length; u++) {
+        var uc = uContacts[u];
+        totDiya += Number(uc.totalGave || 0);
+        totMila += Number(uc.totalGot || 0);
+        uRows.push([u + 1, uc.name, uc.phone, uc.note, uc.totalGave, uc.totalGot, uc.balance, uc.status]);
+      }
+      if (uRows.length > 0) {
+        uSheet.getRange(5, 1, uRows.length, 8).setValues(uRows);
+      }
+      var uTotRow = uRows.length + 5;
+      uSheet.getRange(uTotRow, 1, 1, 8).setValues([["TOTAL", "", "", "", totDiya, totMila, uLena - uDena, ""]])
+            .setBackground("#F3E8FF").setFontWeight("bold");
+
+      var txLog = payload.udharData.transactions || [];
+      if (txLog.length > 0) {
+        var txRow = uTotRow + 2;
+        uSheet.getRange(txRow, 1, 1, 5).merge()
+              .setValue("📋 DETAILED TRANSACTIONS HISTORY (लेन-देन पासबुक हिस्ट्री)")
+              .setBackground("#4361EE").setFontColor("#FFFFFF").setFontWeight("bold");
+        txRow++;
+        uSheet.getRange(txRow, 1, 1, 5).setValues([["Date (तारीख)", "Person Name (नाम)", "Type (प्रकार)", "Amount (रकम ₹)", "Note / Details (विवरण)"]])
+              .setBackground("#E0E7FF").setFontWeight("bold");
+
+        var txDataRows = [];
+        for (var t = 0; t < txLog.length; t++) {
+          var txItem = txLog[t];
+          var pName = txItem.contactName || "Unknown";
+          if (pName === "Unknown") {
+            for (var cp = 0; cp < uContacts.length; cp++) {
+              if (uContacts[cp].id === txItem.contactId) {
+                pName = uContacts[cp].name;
+                break;
+              }
+            }
+          }
+          var typeLabel = txItem.type === "GAVE" ? "🔴 Maine Diya" : "🟢 Mujhe Mila";
+          txDataRows.push([txItem.date || "", pName, typeLabel, txItem.amount || 0, txItem.note || ""]);
+        }
+        if (txDataRows.length > 0) {
+          uSheet.getRange(txRow + 1, 1, txDataRows.length, 5).setValues(txDataRows);
+        }
+      }
+
+      uSheet.autoResizeColumns(1, 8);
+    }
+
     try {
       var files = DriveApp.getFilesByName("HouseSpend_Master_Backup.json");
       if (files.hasNext()) {
@@ -1123,7 +1253,7 @@ function doPost(e) {
   }
 }
 function doGet(e) {
-  return ContentService.createTextOutput("House Spend & Rent Collection Live Sync Active!");
+  return ContentService.createTextOutput("House Spend, Rent & Udhar Master Live Sync Active!");
 }
 </textarea>
       </div>
@@ -1439,6 +1569,31 @@ function doGet(e) {
       <div class="btn-row">
         <button class="btn-sec" onclick="printUdharStatement()">🖨️ Print / Save PDF</button>
         <button class="btn-primary" style="margin-top:0; background:#2ec4b6;" onclick="exportUdharCsv()">📊 Download Excel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 14. ALL-IN-ONE MASTER STATEMENT MODAL ==================== -->
+  <div class="modal-overlay" id="modal-master-statement" style="display:none;">
+    <div class="modal" style="max-width:540px; max-height:88vh; overflow-y:auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="font-size:17px; color:#fff; margin:0;">📋 All-in-One Master Statement</h3>
+        <button onclick="closeMasterStatementModal()" style="background:transparent; border:none; color:var(--text-sec); font-size:22px; cursor:pointer;">✕</button>
+      </div>
+
+      <p style="font-size:11px; color:var(--text-sec); margin-bottom:10px;">
+        Ye report Ghar Kharcha, 8 Kamron ka Rent aur Udhar Khata teeno ko milakar aisi print-ready sheet banati hai jise koi bhi aaram se samajh sakta hai:
+      </p>
+
+      <!-- Printable Sheet Wrapper -->
+      <div id="master-statement-printable" style="background:#fff; color:#111; padding:16px; border-radius:10px; border:1px solid #ccc; font-family:Arial, sans-serif; font-size:11px;">
+        <!-- Rendered by renderMasterStatementContent() -->
+      </div>
+
+      <div class="btn-row" style="margin-top:14px; gap:8px;">
+        <button class="btn-sec" style="flex:1;" onclick="printMasterStatement()">🖨️ Print / Save PDF</button>
+        <button class="btn-primary" style="flex:1; margin-top:0; background:#00C853;" onclick="exportMasterCsv()">📊 Master Excel (.csv)</button>
+        <button class="btn-sec" style="flex:1; border-color:#25D366; color:#25D366;" onclick="shareMasterStatementText()">💬 WhatsApp</button>
       </div>
     </div>
   </div>
@@ -2610,7 +2765,18 @@ function doGet(e) {
             status: s.balance > 0 ? 'LENA' : (s.balance < 0 ? 'DENA' : 'SETTLED')
           };
         }) : [],
-        transactions: (udharData && udharData.transactions) || []
+        transactions: ((udharData && udharData.transactions) || []).map(t => {
+          const c = (udharData.contacts || []).find(co => co.id === t.contactId);
+          return {
+            id: t.id,
+            contactId: t.contactId,
+            contactName: c ? c.name : 'Unknown',
+            type: t.type,
+            amount: t.amount,
+            date: t.date,
+            note: t.note
+          };
+        })
       },
       timestamp: new Date().toLocaleString()
     };
@@ -4411,6 +4577,410 @@ function doGet(e) {
 
     downloadBlob(blob, fileName);
     alert('✅ Rent Statement Excel (.csv) file download ho gayi!');
+  }
+
+
+  /* ==================== 📋 ALL-IN-ONE MASTER STATEMENT & EXCEL ==================== */
+  function openMasterStatementModal() {
+    renderMasterStatementContent();
+    const modal = document.getElementById('modal-master-statement');
+    if (modal) modal.style.display = 'flex';
+  }
+
+  function closeMasterStatementModal() {
+    const modal = document.getElementById('modal-master-statement');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function renderMasterStatementContent() {
+    const container = document.getElementById('master-statement-printable');
+    if (!container) return;
+
+    // 1. Ghar Kharcha Calculations
+    const salary = settings.totalSalary || 60000;
+    const monthExpenses = getExpensesForMonth(currentMonth);
+    const totalSpent = monthExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+    const remainingSavings = salary - totalSpent;
+
+    // 2. Rent Calculations
+    const monthPayments = (rentData && rentData.payments && rentData.payments[currentMonth]) || {};
+    const rooms = (rentData && rentData.rooms) || [];
+    let totRentDue = 0, totRentPaid = 0, totRentPending = 0;
+    let paidRoomsCount = 0;
+
+    const rentRowsHtml = rooms.map((r, i) => {
+      const p = monthPayments[r.id] || {};
+      const due = Number(r.rentAmount || 0);
+      const paid = Number(p.paidAmount || 0);
+      const bal = due - paid;
+      totRentDue += due;
+      totRentPaid += paid;
+      totRentPending += bal;
+      if (paid >= due) paidRoomsCount++;
+
+      return `
+      <tr>
+        <td style="text-align:center;">${i + 1}</td>
+        <td><strong>${escapeHtml(r.floor)}</strong> - ${escapeHtml(r.name)}</td>
+        <td>${escapeHtml(r.tenantName || 'Khali')}</td>
+        <td style="font-family:monospace; text-align:center;">${escapeHtml(r.meterNo || '-')}</td>
+        <td style="text-align:right;">₹${due.toLocaleString('en-IN')}</td>
+        <td style="text-align:right; color:green; font-weight:bold;">₹${paid.toLocaleString('en-IN')}</td>
+        <td style="text-align:right; color:${bal > 0 ? 'red' : '#333'}; font-weight:bold;">₹${bal.toLocaleString('en-IN')}</td>
+        <td style="text-align:center;">${paid >= due ? '🟢 Paid' : (paid > 0 ? '🟡 Partial' : '🔴 Baki')}</td>
+        <td><small>${escapeHtml(p.remarks || (p.date ? 'Mila: ' + p.date : ''))}</small></td>
+      </tr>`;
+    }).join('');
+
+    const maintMonth = (rentData && rentData.maintenance || [])
+      .filter(m => m.date && m.date.startsWith(currentMonth))
+      .reduce((sum, m) => sum + Number(m.amount || 0), 0);
+    const netRentSurplus = totRentPaid - maintMonth;
+
+    // 3. Udhar Khata Calculations
+    const uStats = getUdharOverallStats();
+    const contacts = (udharData && udharData.contacts) || [];
+    const udharRowsHtml = contacts.map((c, idx) => {
+      const s = getContactStats(c.id);
+      const statusText = s.balance > 0 ? '🔴 LENA HAI' : (s.balance < 0 ? '🟢 DENA HAI' : '⚪ BARABAR');
+      return `
+      <tr>
+        <td style="text-align:center;">${idx + 1}</td>
+        <td><strong>${escapeHtml(c.name)}</strong></td>
+        <td>${c.phone || '-'}</td>
+        <td style="text-align:right;">₹${s.totalGave.toLocaleString('en-IN')}</td>
+        <td style="text-align:right; color:green;">₹${s.totalGot.toLocaleString('en-IN')}</td>
+        <td style="text-align:right; font-weight:bold; color:${s.balance > 0 ? 'red' : (s.balance < 0 ? 'green' : '#333')};">₹${Math.abs(s.balance).toLocaleString('en-IN')}</td>
+        <td style="text-align:center; font-weight:bold;">${statusText}</td>
+      </tr>`;
+    }).join('');
+
+    container.innerHTML = `
+      <div style="line-height:1.4;">
+        <!-- Top Document Title -->
+        <div style="text-align:center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px;">
+          <h2 style="margin:0; font-size:18px; text-transform:uppercase; color:#000; letter-spacing:0.5px;">
+            MASTER FINANCIAL STATEMENT & HISAB
+          </h2>
+          <div style="font-size:12px; font-weight:bold; color:#444; margin-top:2px;">
+            Ghar Ka Kharcha • 8-Room Rental Property • Udhar Khata (लेन-देन)
+          </div>
+          <div style="font-size:11px; color:#666; margin-top:3px;">
+            Statement Month: <strong>${currentMonth}</strong> &nbsp;|&nbsp; Generated: <strong>${new Date().toLocaleDateString()}</strong> &nbsp;|&nbsp; Currency: <strong>INR (₹)</strong>
+          </div>
+        </div>
+
+        <!-- 3-Box Executive KPI Summary -->
+        <div style="display:flex; gap:8px; margin-bottom:14px;">
+          <!-- Ghar Kharcha Box -->
+          <div style="flex:1; border:1px solid #6C63FF; border-radius:6px; padding:8px; background:#f4f3ff;">
+            <div style="font-size:11px; font-weight:bold; color:#6C63FF; text-transform:uppercase;">1. Ghar Kharcha</div>
+            <div style="font-size:10px; margin-top:4px;">Salary: <strong>₹${salary.toLocaleString('en-IN')}</strong></div>
+            <div style="font-size:10px;">Spent: <strong style="color:#d90429;">₹${totalSpent.toLocaleString('en-IN')}</strong></div>
+            <div style="font-size:11px; font-weight:bold; color:${remainingSavings >= 0 ? '#007200' : 'red'}; margin-top:2px;">
+              Savings: ₹${remainingSavings.toLocaleString('en-IN')}
+            </div>
+          </div>
+
+          <!-- Rent Box -->
+          <div style="flex:1; border:1px solid #0077B6; border-radius:6px; padding:8px; background:#f0f8ff;">
+            <div style="font-size:11px; font-weight:bold; color:#0077B6; text-transform:uppercase;">2. Rent (8 Rooms)</div>
+            <div style="font-size:10px; margin-top:4px;">Collected: <strong style="color:#007200;">₹${totRentPaid.toLocaleString('en-IN')}</strong> / ₹${totRentDue.toLocaleString('en-IN')}</div>
+            <div style="font-size:10px;">Baki: <strong style="color:red;">₹${totRentPending.toLocaleString('en-IN')}</strong> (${8 - paidRoomsCount} Rooms)</div>
+            <div style="font-size:11px; font-weight:bold; color:#0077B6; margin-top:2px;">
+              Net Surplus: ₹${netRentSurplus.toLocaleString('en-IN')}
+            </div>
+          </div>
+
+          <!-- Udhar Box -->
+          <div style="flex:1; border:1px solid #7209B7; border-radius:6px; padding:8px; background:#fbf5ff;">
+            <div style="font-size:11px; font-weight:bold; color:#7209B7; text-transform:uppercase;">3. Udhar Khata</div>
+            <div style="font-size:10px; margin-top:4px;">Kul Lena: <strong style="color:red;">₹${uStats.totalToReceive.toLocaleString('en-IN')}</strong></div>
+            <div style="font-size:10px;">Kul Dena: <strong style="color:#007200;">₹${uStats.totalToPay.toLocaleString('en-IN')}</strong></div>
+            <div style="font-size:11px; font-weight:bold; color:#7209B7; margin-top:2px;">
+              Net: ₹${Math.abs(uStats.netBalance).toLocaleString('en-IN')} ${uStats.netBalance >= 0 ? '(Lena)' : '(Dena)'}
+            </div>
+          </div>
+        </div>
+
+        <!-- SECTION 1: GHAR KHARCHA SUMMARY -->
+        <div style="background:#6C63FF; color:#fff; padding:4px 8px; font-weight:bold; font-size:11px; border-radius:4px 4px 0 0; margin-top:10px;">
+          SECTION 1: GHAR KA KHARCHA (घर का मासिक खर्च व हिसाब)
+        </div>
+        <table style="width:100%; border-collapse:collapse; font-size:10px; margin-bottom:12px;" border="1" cellpadding="4">
+          <thead style="background:#e9ecef;">
+            <tr>
+              <th style="width:30px;">S.No</th>
+              <th>Date</th>
+              <th>Category</th>
+              <th>Person</th>
+              <th>Amount (₹)</th>
+              <th>Note / Details</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${monthExpenses.slice(0, 15).map((e, idx) => `
+              <tr>
+                <td style="text-align:center;">${idx + 1}</td>
+                <td>${e.date}</td>
+                <td>${escapeHtml(e.category)}</td>
+                <td>${escapeHtml(e.person || '')}</td>
+                <td style="text-align:right; font-weight:bold;">₹${Number(e.amount).toLocaleString('en-IN')}</td>
+                <td>${escapeHtml(e.note || '')}</td>
+              </tr>
+            `).join('')}
+            ${monthExpenses.length > 15 ? `<tr><td colspan="6" style="text-align:center; color:#666;">... +${monthExpenses.length - 15} more entries in full Excel report</td></tr>` : ''}
+            <tr style="background:#f8f9fa; font-weight:bold;">
+              <td colspan="4">Total Expenses (Kul Kharcha)</td>
+              <td style="text-align:right; color:#d90429;">₹${totalSpent.toLocaleString('en-IN')}</td>
+              <td>Net Savings: ₹${remainingSavings.toLocaleString('en-IN')}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- SECTION 2: 8-ROOM RENT REGISTER -->
+        <div style="background:#0077B6; color:#fff; padding:4px 8px; font-weight:bold; font-size:11px; border-radius:4px 4px 0 0;">
+          SECTION 2: 8-ROOM RENTAL PROPERTY REGISTER (मकान किराया व मेंटेनेंस)
+        </div>
+        <table style="width:100%; border-collapse:collapse; font-size:10px; margin-bottom:12px;" border="1" cellpadding="4">
+          <thead style="background:#e9ecef;">
+            <tr>
+              <th style="width:25px;">#</th>
+              <th>Floor & Room</th>
+              <th>Tenant Name</th>
+              <th>Meter No</th>
+              <th>Due (₹)</th>
+              <th>Paid (₹)</th>
+              <th>Baki (₹)</th>
+              <th>Status</th>
+              <th>Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rentRowsHtml}
+            <tr style="background:#f8f9fa; font-weight:bold;">
+              <td colspan="4">Total 8 Rooms</td>
+              <td style="text-align:right;">₹${totRentDue.toLocaleString('en-IN')}</td>
+              <td style="text-align:right; color:green;">₹${totRentPaid.toLocaleString('en-IN')}</td>
+              <td style="text-align:right; color:red;">₹${totRentPending.toLocaleString('en-IN')}</td>
+              <td colspan="2">${paidRoomsCount === 8 ? 'All 8 Rooms Paid' : (8 - paidRoomsCount) + ' Rooms Baki'}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- SECTION 3: UDHAR KHATA -->
+        <div style="background:#7209B7; color:#fff; padding:4px 8px; font-weight:bold; font-size:11px; border-radius:4px 4px 0 0;">
+          SECTION 3: UDHAR KHATA & LEN-DEN REGISTER (उधार व लेन-देन खाता)
+        </div>
+        <table style="width:100%; border-collapse:collapse; font-size:10px; margin-bottom:12px;" border="1" cellpadding="4">
+          <thead style="background:#e9ecef;">
+            <tr>
+              <th style="width:25px;">#</th>
+              <th>Person Name</th>
+              <th>Phone</th>
+              <th>Kul Diya (₹)</th>
+              <th>Kul Mila (₹)</th>
+              <th>Net Balance (₹)</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${udharRowsHtml || '<tr><td colspan="7" style="text-align:center;">Koi Udhar Khata nahi hai</td></tr>'}
+            <tr style="background:#f8f9fa; font-weight:bold;">
+              <td colspan="3">Totals</td>
+              <td style="text-align:right;">₹${contacts.reduce((a,c) => a + getContactStats(c.id).totalGave, 0).toLocaleString('en-IN')}</td>
+              <td style="text-align:right; color:green;">₹${contacts.reduce((a,c) => a + getContactStats(c.id).totalGot, 0).toLocaleString('en-IN')}</td>
+              <td style="text-align:right; color:red;">₹${uStats.totalToReceive.toLocaleString('en-IN')} (Lena)</td>
+              <td>Dena: ₹${uStats.totalToPay.toLocaleString('en-IN')}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Document Signoff Footer -->
+        <div style="margin-top:16px; padding-top:10px; border-top:1px solid #999; display:flex; justify-content:space-between; font-size:10px; color:#555;">
+          <div>Report Verified By: ___________________</div>
+          <div>Authorized Signature: ___________________</div>
+          <div>Date: ___________________</div>
+        </div>
+      </div>
+    `;
+  }
+
+  function printMasterStatement() {
+    const content = document.getElementById('master-statement-printable');
+    if (!content) return;
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Master Financial Statement - ${currentMonth}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; color: #111; }
+            table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+            th, td { border: 1px solid #999; padding: 5px; font-size: 10px; }
+            th { background: #eee; }
+            @media print {
+              body { padding: 0; }
+              @page { margin: 1cm; size: A4; }
+            }
+          </style>
+        </head>
+        <body>
+          ${content.innerHTML}
+          <script>
+            window.onload = function() { window.print(); window.close(); }
+          <\/script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  }
+
+  function exportMasterCsv() {
+    const curMonth = currentMonth;
+    const salary = settings.totalSalary || 60000;
+    const monthExpenses = getExpensesForMonth(curMonth);
+    const totalSpent = monthExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+    const remaining = salary - totalSpent;
+
+    let csv = `================================================================================\n`;
+    csv += `ALL-IN-ONE MASTER FINANCIAL STATEMENT & HISAB (मास्टर वित्तीय हिसाब व रिपोर्ट)\n`;
+    csv += `================================================================================\n`;
+    csv += `Statement Period,${curMonth}\n`;
+    csv += `Exported At,${new Date().toLocaleString()}\n`;
+    csv += `Currency,Indian Rupee (₹)\n\n`;
+
+    // 1. GHAR KHARCHA
+    csv += `--------------------------------------------------------------------------------\n`;
+    csv += `SECTION 1: GHAR KA KHARCHA (घर का मासिक खर्च व हिसाब)\n`;
+    csv += `--------------------------------------------------------------------------------\n`;
+    csv += `Total Monthly Salary (कुल वेतन),${salary}\n`;
+    csv += `Total Monthly Expenses (कुल खर्च),${totalSpent}\n`;
+    csv += `Net Savings / Remaining (बचत / बाकी),${remaining}\n\n`;
+
+    csv += `EXPENSE ITEMS LIST (खर्चों का पूरा विवरण):\n`;
+    csv += `S.No,Date (तारीख),Category (खर्च की मद),Person (किसका खर्च),Milk Qty (दूध लीटर),Amount (रकम ₹),Note / Details (विवरण)\n`;
+    monthExpenses.forEach((e, i) => {
+      csv += `${i + 1},"${e.date}","${e.category}","${e.person || ''}","${e.qty || ''}",${e.amount},"${(e.note || '').replace(/"/g, '""')}"\n`;
+    });
+    csv += `TOTAL EXPENSES,,,,,${totalSpent}\n\n`;
+
+    // 2. RENT COLLECTION
+    const monthPayments = (rentData && rentData.payments && rentData.payments[curMonth]) || {};
+    const rooms = (rentData && rentData.rooms) || [];
+    let totDue = 0, totPaid = 0, totBaki = 0;
+
+    csv += `--------------------------------------------------------------------------------\n`;
+    csv += `SECTION 2: 8-ROOM RENTAL PROPERTY (मकान किराया रजिस्टर व मेंटेनेंस)\n`;
+    csv += `--------------------------------------------------------------------------------\n`;
+    csv += `Property Name,"8 Room Rental Property"\n`;
+    csv += `Total Rooms,8\n`;
+
+    csv += `ROOM-BY-ROOM STATUS (सभी 8 कमरों का किराया विवरण):\n`;
+    csv += `Floor (मंज़िल),Room No (कमरा),Tenant Name (किरायेदार),Meter No (मीटर नंबर),Monthly Rent (मासिक ₹),Paid Amount (मिला ₹),Balance Due (बाकी ₹),Status (स्थिति),Payment Date (तारीख),Remarks (रिमार्क्स)\n`;
+    rooms.forEach(r => {
+      const p = monthPayments[r.id] || {};
+      const due = Number(r.rentAmount || 0);
+      const paid = Number(p.paidAmount || 0);
+      const bal = due - paid;
+      totDue += due;
+      totPaid += paid;
+      totBaki += bal;
+      const st = paid >= due ? 'Paid' : (paid > 0 ? 'Partial' : 'Pending');
+      csv += `"${r.floor}","${r.name}","${r.tenantName || ''}","${r.meterNo || ''}",${due},${paid},${bal},"${st}","${p.date || ''}","${(p.remarks || '').replace(/"/g, '""')}"\n`;
+    });
+    csv += `TOTAL 8 ROOMS,,,,${totDue},${totPaid},${totBaki}\n\n`;
+
+    const maintList = (rentData && rentData.maintenance || []).filter(m => m.date && m.date.startsWith(curMonth));
+    const totMaint = maintList.reduce((s, m) => s + Number(m.amount || 0), 0);
+    csv += `HOUSE MAINTENANCE & REPAIRS (मकान मरम्मत व रखरखाव खर्च):\n`;
+    csv += `Date (तारीख),Category (काम की मद),Description / Mistri (दुकान या मिस्त्री विवरण),Amount (रकम ₹)\n`;
+    maintList.forEach(m => {
+      csv += `"${m.date}","${m.category}","${(m.desc || '').replace(/"/g, '""')}",${m.amount}\n`;
+    });
+    csv += `TOTAL MAINTENANCE SPENT,,,${totMaint}\n`;
+    csv += `NET RENTAL SURPLUS (किराया - मेंटेनेंस),,,${totPaid - totMaint}\n\n`;
+
+    // 3. UDHAR KHATA
+    const uStats = getUdharOverallStats();
+    const contacts = (udharData && udharData.contacts) || [];
+
+    csv += `--------------------------------------------------------------------------------\n`;
+    csv += `SECTION 3: UDHAR KHATA & LEN-DEN REGISTER (उधार व लेन-देन खाता)\n`;
+    csv += `--------------------------------------------------------------------------------\n`;
+    csv += `Active Accounts Count,${contacts.length}\n`;
+    csv += `Kul Lena Hai (लोगों से कुल लेना बाकी),${uStats.totalToReceive}\n`;
+    csv += `Kul Dena Hai (लोगों को कुल देना बाकी),${uStats.totalToPay}\n`;
+    csv += `Net Udhar Position,${uStats.netBalance}\n\n`;
+
+    csv += `CONTACTS MASTER LEDGER (सभी व्यक्तियों का बैलेंस):\n`;
+    csv += `S.No,Name (नाम),Mobile (फोन),Relation / Note (पहचान/रिश्ता),Kul Diya (कुल उधार दिया ₹),Kul Mila (कुल वापस मिला ₹),Net Balance (बाकी रकम ₹),Status (स्थिति)\n`;
+    contacts.forEach((c, idx) => {
+      const s = getContactStats(c.id);
+      const st = s.balance > 0 ? 'LENA HAI' : (s.balance < 0 ? 'DENA HAI' : 'BARABAR');
+      csv += `${idx + 1},"${c.name}","${c.phone || ''}","${c.note || ''}",${s.totalGave},${s.totalGot},${s.balance},"${st}"\n`;
+    });
+    csv += `\n================================================================================\n`;
+    csv += `END OF MASTER FINANCIAL STATEMENT\n`;
+    csv += `================================================================================\n`;
+
+    const fileName = `Master_Financial_Report_${curMonth}.csv`;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+
+    if (window.AndroidNative && typeof window.AndroidNative.shareBackup === 'function') {
+      window.AndroidNative.shareBackup(fileName, csv);
+      return;
+    }
+
+    downloadBlob(blob, fileName);
+    alert('✅ Master Excel (.csv) Report download ho gayi! Isme Ghar Kharcha, Rent aur Udhar Khata teeno ka clear hisaab maujood hai.');
+  }
+
+  function shareMasterStatementText() {
+    const curMonth = currentMonth;
+    const salary = settings.totalSalary || 60000;
+    const monthExpenses = getExpensesForMonth(curMonth);
+    const totalSpent = monthExpenses.reduce((sum, e) => sum + Number(e.amount || 0), 0);
+    const remaining = salary - totalSpent;
+
+    const monthPayments = (rentData && rentData.payments && rentData.payments[curMonth]) || {};
+    const rooms = (rentData && rentData.rooms) || [];
+    let totRentDue = 0, totRentPaid = 0;
+    rooms.forEach(r => {
+      totRentDue += Number(r.rentAmount || 0);
+      totRentPaid += Number((monthPayments[r.id] && monthPayments[r.id].paidAmount) || 0);
+    });
+
+    const maintMonth = (rentData && rentData.maintenance || [])
+      .filter(m => m.date && m.date.startsWith(curMonth))
+      .reduce((sum, m) => sum + Number(m.amount || 0), 0);
+
+    const uStats = getUdharOverallStats();
+
+    let text = `📋 *MASTER FINANCIAL STATEMENT & HISAB*\n`;
+    text += `📅 Month: *${curMonth}*\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `🏡 *1. GHAR KA KHARCHA:*\n`;
+    text += `• Salary: ₹${salary.toLocaleString('en-IN')}\n`;
+    text += `• Spent: ₹${totalSpent.toLocaleString('en-IN')}\n`;
+    text += `• Savings / Baqi: ₹${remaining.toLocaleString('en-IN')}\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `🏢 *2. 8-ROOM RENT REGISTER:*\n`;
+    text += `• Due: ₹${totRentDue.toLocaleString('en-IN')}\n`;
+    text += `• Collected: ₹${totRentPaid.toLocaleString('en-IN')}\n`;
+    text += `• Baki: ₹${(totRentDue - totRentPaid).toLocaleString('en-IN')}\n`;
+    text += `• Maintenance: ₹${maintMonth.toLocaleString('en-IN')}\n`;
+    text += `• Net Surplus: ₹${(totRentPaid - maintMonth).toLocaleString('en-IN')}\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `🤝 *3. UDHAR KHATA (लेन-देन):*\n`;
+    text += `• Kul Lena Hai: ₹${uStats.totalToReceive.toLocaleString('en-IN')}\n`;
+    text += `• Kul Dena Hai: ₹${uStats.totalToPay.toLocaleString('en-IN')}\n`;
+    text += `• Net: ₹${Math.abs(uStats.netBalance).toLocaleString('en-IN')} (${uStats.netBalance >= 0 ? 'LENA' : 'DENA'})\n`;
+    text += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    text += `_Sent via House Spend, Rent & Udhar Manager_`;
+
+    const shareUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+    openExternalUrl(shareUrl);
   }
 
   /* ==================== UTILS ==================== */
