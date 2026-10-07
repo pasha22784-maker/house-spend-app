@@ -128,6 +128,23 @@
     .mode-pill.active { background: linear-gradient(135deg, var(--primary) 0%, #4b43c6 100%); color: #fff; border-color: var(--primary); box-shadow: 0 2px 10px rgba(108, 99, 255, 0.35); }
     .mode-pill.rent.active { background: linear-gradient(135deg, #00b4d8 0%, #0077b6 100%); color: #fff; border-color: var(--secondary); box-shadow: 0 2px 10px rgba(0, 210, 255, 0.35); }
 
+    /* Udhar Khata Specific Styles */
+    .mode-pill.udhar.active { background: linear-gradient(135deg, #e63946 0%, #b5179e 100%); color: #fff; border-color: #e63946; box-shadow: 0 2px 10px rgba(230, 57, 70, 0.35); }
+    .udhar-stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+    .udhar-contact-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; margin-bottom: 9px; cursor: pointer; transition: 0.15s; display: flex; justify-content: space-between; align-items: center; }
+    .udhar-contact-card:hover { border-color: var(--secondary); background: rgba(255,255,255,0.02); }
+    .udhar-avatar { width: 40px; height: 40px; border-radius: 50%; background: linear-gradient(135deg, #4361ee 0%, #3a0ca3 100%); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; text-transform: uppercase; margin-right: 12px; flex-shrink: 0; }
+    .udhar-tx-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 0; border-bottom: 1px solid var(--border); }
+    .udhar-badge-gave { background: rgba(230, 57, 70, 0.18); color: #ff6b6b; padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; }
+    .udhar-badge-got { background: rgba(42, 157, 143, 0.18); color: #2ec4b6; padding: 3px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; }
+    .btn-udhar-gave { flex: 1; background: linear-gradient(135deg, #e63946 0%, #d62828 100%); color: #fff; border: none; border-radius: 12px; padding: 12px 8px; font-size: 13px; font-weight: 700; cursor: pointer; text-align: center; }
+    .btn-udhar-got { flex: 1; background: linear-gradient(135deg, #00b4d8 0%, #0077b6 100%); color: #fff; border: none; border-radius: 12px; padding: 12px 8px; font-size: 13px; font-weight: 700; cursor: pointer; text-align: center; }
+    .udhar-type-toggle { display: flex; gap: 8px; margin-bottom: 12px; }
+    .udhar-type-btn { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); color: var(--text-sec); font-size: 12px; font-weight: 700; cursor: pointer; text-align: center; }
+    .udhar-type-btn.active-gave { background: rgba(230, 57, 70, 0.25); color: #ff6b6b; border-color: #ff6b6b; }
+    .udhar-type-btn.active-got { background: rgba(42, 157, 143, 0.25); color: #2ec4b6; border-color: #2ec4b6; }
+
+
     /* Rent Specific Styles */
     .rent-floor-title { font-size: 12px; font-weight: 800; color: var(--secondary); margin: 16px 0 8px; display: flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: 0.6px; }
     .room-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 13px; margin-bottom: 10px; transition: 0.15s; }
@@ -184,13 +201,16 @@
     </div>
   </div>
 
-  <!-- Main Mode Switcher: Ghar Ka Kharcha vs Rent Collection -->
+  <!-- Main Mode Switcher: Ghar Ka Kharcha vs Rent vs Udhar Khata -->
   <div class="mode-switcher-bar">
     <div class="mode-pill active" id="pill-mode-spend" onclick="switchAppMode('spend')">
       <span>🏠</span> Ghar Kharcha
     </div>
     <div class="mode-pill rent" id="pill-mode-rent" onclick="switchAppMode('rent')">
-      <span>🏢</span> Rent Collection (किराया)
+      <span>🏢</span> Rent (किराया)
+    </div>
+    <div class="mode-pill udhar" id="pill-mode-udhar" onclick="switchAppMode('udhar')">
+      <span>🤝</span> Udhar Khata
     </div>
   </div>
 
@@ -716,6 +736,124 @@
     </div>
   </div>
 
+
+  <!-- ==================== 12. UDHAR KHATA (लेन-देन DASHBOARD & LIST) ==================== -->
+  <div class="content screen" id="screen-udhar-list">
+    <!-- Udhar Overview Card -->
+    <div class="card card-gradient" style="background: linear-gradient(135deg, #7209b7 0%, #4361ee 100%);">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div>
+          <div class="card-title" style="color:rgba(255,255,255,0.85);">Udhar Khata (लेन-देन)</div>
+          <div class="card-value" id="udhar-net-balance" style="font-size:22px;">₹0</div>
+        </div>
+        <div style="text-align:right;">
+          <span style="font-size:10px; background:rgba(0,0,0,0.25); color:#fff; padding:3px 8px; border-radius:10px;" id="udhar-total-contacts-pill">0 Log</span>
+          <div style="font-size:11px; color:rgba(255,255,255,0.85); margin-top:4px;" id="udhar-status-sub">Sab Hisaab Barabar</div>
+        </div>
+      </div>
+
+      <!-- Lena vs Dena Split -->
+      <div style="display:flex; justify-content:space-between; margin-top:12px; padding-top:10px; border-top:1px solid rgba(255,255,255,0.2); font-size:12px;">
+        <div>
+          <span style="color:#ffb4a2;">🔴 Kul Lena Hai (बाक़ी):</span>
+          <strong id="udhar-total-receive" style="color:#fff; margin-left:4px;">₹0</strong>
+        </div>
+        <div style="text-align:right;">
+          <span style="color:#b7e4c7;">🟢 Kul Dena Hai:</span>
+          <strong id="udhar-total-pay" style="color:#fff; margin-left:4px;">₹0</strong>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Action Buttons -->
+    <div class="actions-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom:12px;">
+      <button class="action-btn" onclick="openAddUdharPersonModal()">
+        <span>👤</span>
+        <p>+ Naya Shakhs</p>
+      </button>
+      <button class="action-btn" onclick="openAddUdharTxModal()">
+        <span>💵</span>
+        <p>+ Len-Den Entry</p>
+      </button>
+      <button class="action-btn" onclick="openUdharStatementModal()">
+        <span>📄</span>
+        <p>Khata Report</p>
+      </button>
+    </div>
+
+    <!-- Search Bar -->
+    <div class="form-group" style="margin-bottom:10px;">
+      <input type="text" class="form-input" id="udhar-search-input" placeholder="🔍 Naam ya mobile number search karein..." oninput="filterUdharContacts()" style="border-radius:12px; font-size:13px; padding:10px 14px; background:var(--card);">
+    </div>
+
+    <!-- Filter Pills: All / Lena Hai / Dena Hai / Settled -->
+    <div class="rent-filter-pills" style="margin-bottom:12px;">
+      <button class="rent-filter-pill active" id="filter-udhar-all" onclick="setUdharFilter('all')">Sabhi Log</button>
+      <button class="rent-filter-pill" id="filter-udhar-receive" onclick="setUdharFilter('receive')" style="color:var(--error);">🔴 Lena Hai</button>
+      <button class="rent-filter-pill" id="filter-udhar-pay" onclick="setUdharFilter('pay')" style="color:var(--success);">🟢 Dena Hai</button>
+      <button class="rent-filter-pill" id="filter-udhar-settled" onclick="setUdharFilter('settled')">⚪ Barabar</button>
+    </div>
+
+    <!-- Contacts List Container -->
+    <div id="udhar-contacts-container">
+      <!-- Dynamically rendered contacts -->
+    </div>
+  </div>
+
+  <!-- ==================== 13. INDIVIDUAL PERSON UDHAR LEDGER / PASSBOOK ==================== -->
+  <div class="content screen" id="screen-udhar-ledger">
+    <!-- Header with Back Button -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <button class="btn-sec" style="width:auto; padding:6px 12px; font-size:11px;" onclick="closePersonLedger()">← Sabhi Khate</button>
+      <div style="display:flex; gap:6px;">
+        <button class="btn-sec" style="width:auto; padding:6px 10px; font-size:11px;" id="ledger-call-btn">📞 Call</button>
+        <button class="btn-sec" style="width:auto; padding:6px 10px; font-size:11px; color:#25D366; border-color:#25D366;" onclick="shareWhatsAppReminder(currentLedgerPersonId)">💬 WhatsApp</button>
+        <button class="btn-sec" style="width:auto; padding:6px 10px; font-size:11px;" onclick="openEditUdharPersonModal(currentLedgerPersonId)">✏️ Edit</button>
+      </div>
+    </div>
+
+    <!-- Person Balance Banner Card -->
+    <div class="card" id="ledger-summary-card" style="border-radius:14px; margin-bottom:12px;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <div>
+          <h2 id="ledger-person-name" style="font-size:18px; color:#fff; margin:0;">Zahid Khan</h2>
+          <div id="ledger-person-phone" style="font-size:12px; color:var(--text-sec); margin-top:2px;">📞 9876543210</div>
+          <div id="ledger-person-note" style="font-size:11px; color:var(--secondary); margin-top:2px;"></div>
+        </div>
+        <div style="text-align:right;">
+          <div id="ledger-balance-tag" style="font-size:18px; font-weight:800;">₹0</div>
+          <div id="ledger-balance-subtitle" style="font-size:10px; text-transform:uppercase; letter-spacing:0.5px;">Hisaab Barabar</div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; margin-top:12px; padding-top:10px; border-top:1px dashed var(--border); font-size:12px;">
+        <div>Kul Diya: <strong id="ledger-total-gave" style="color:#ff6b6b;">₹0</strong></div>
+        <div>Kul Wapas Mila: <strong id="ledger-total-got" style="color:#2ec4b6;">₹0</strong></div>
+      </div>
+    </div>
+
+    <!-- Two Big Action Buttons -->
+    <div style="display:flex; gap:10px; margin-bottom:14px;">
+      <button class="btn-udhar-gave" onclick="openAddUdharTxModal('GAVE', currentLedgerPersonId)">
+        🔴 - Maine Diya (उधार दिया)
+      </button>
+      <button class="btn-udhar-got" onclick="openAddUdharTxModal('GOT', currentLedgerPersonId)">
+        🟢 + Mujhe Mila (वापस मिला)
+      </button>
+    </div>
+
+    <!-- Passbook / Transactions History -->
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <span class="card-title" style="margin:0;">Len-Den Passbook History</span>
+        <button onclick="shareWhatsAppReminder(currentLedgerPersonId)" style="background:transparent; border:none; color:var(--secondary); font-size:11px; cursor:pointer; font-weight:600;">📤 Send Slip</button>
+      </div>
+      <div id="ledger-transactions-list">
+        <!-- Rendered transactions -->
+      </div>
+    </div>
+  </div>
+
   <!-- ==================== MODALS ==================== -->
 
   <!-- Add Person Modal -->
@@ -940,6 +1078,24 @@ function doPost(e) {
       rSheet.getRange(nextRow, 1, 1, 4).setValues([["Total Maintenance", "", "", totMaint]])
             .setBackground("#FFE0B2").setFontWeight("bold");
 
+            // 3. Udhar Khata (लेन-देन) Tab
+      if (payload.udharData && payload.udharData.contacts && payload.udharData.contacts.length > 0) {
+        var uSheet = ss.getSheetByName("Udhar_Khata") || ss.insertSheet("Udhar_Khata");
+        uSheet.clear();
+        uSheet.getRange("A1:G1").setValues([["Shakhs Name", "Phone", "Note", "Kul Diya (₹)", "Kul Mila (₹)", "Net Balance (₹)", "Status"]])
+              .setBackground("#7209B7").setFontColor("#FFFFFF").setFontWeight("bold");
+        var uRows = [];
+        var uContacts = payload.udharData.contacts || [];
+        for (var u = 0; u < uContacts.length; u++) {
+          var uc = uContacts[u];
+          uRows.push([uc.name, uc.phone, uc.note, uc.totalGave, uc.totalGot, uc.balance, uc.status]);
+        }
+        if (uRows.length > 0) {
+          uSheet.getRange(2, 1, uRows.length, 7).setValues(uRows);
+        }
+        uSheet.autoResizeColumns(1, 7);
+      }
+
       // Carry forward
       if (rData.annualSummary) {
         nextRow += 2;
@@ -1144,6 +1300,149 @@ function doGet(e) {
     </div>
   </div>
 
+
+  <!-- Add Udhar Person Modal -->
+  <div class="modal-overlay" id="modal-add-udhar-person" style="display:none;">
+    <div class="modal">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="font-size:16px; color:#fff; margin:0;">👤 Naya Shakhs / Add Person</h3>
+        <button onclick="closeAddUdharPersonModal()" style="background:transparent; border:none; color:var(--text-sec); font-size:20px; cursor:pointer;">✕</button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Shakhs Ka Naam (Person Name) *</label>
+        <input type="text" class="form-input" id="new-udhar-name" placeholder="e.g. Zahid Khan, Aslam Mistri">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Mobile Number (WhatsApp Reminder ke liye)</label>
+        <input type="tel" class="form-input" id="new-udhar-phone" placeholder="e.g. 9876543210">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Rishta / Note (Optional)</label>
+        <input type="text" class="form-input" id="new-udhar-note" placeholder="e.g. Dukan wala, Friend, Electrician">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Pehle Ka Bacha Balance (Opening Balance)</label>
+        <input type="number" class="form-input" id="new-udhar-opening-amt" placeholder="0" value="0">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Opening Balance Kis Tarah Ka Hai?</label>
+        <select class="form-select" id="new-udhar-opening-type">
+          <option value="NONE">Zero (Naya hisaab)</option>
+          <option value="GAVE">Maine pehle udhar diya hua hai (LENA HAI)</option>
+          <option value="GOT">Maine pehle udhar liya hua hai (DENA HAI)</option>
+        </select>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-sec" onclick="closeAddUdharPersonModal()">Cancel</button>
+        <button class="btn-primary" style="margin-top:0; background:linear-gradient(135deg, #7209b7 0%, #4361ee 100%);" onclick="submitAddUdharPerson()">Save Person</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Udhar Person Modal -->
+  <div class="modal-overlay" id="modal-edit-udhar-person" style="display:none;">
+    <div class="modal">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="font-size:16px; color:#fff; margin:0;">✏️ Edit Shakhs Details</h3>
+        <button onclick="closeEditUdharPersonModal()" style="background:transparent; border:none; color:var(--text-sec); font-size:20px; cursor:pointer;">✕</button>
+      </div>
+
+      <input type="hidden" id="edit-udhar-person-id">
+
+      <div class="form-group">
+        <label class="form-label">Name</label>
+        <input type="text" class="form-input" id="edit-udhar-name">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Mobile Number</label>
+        <input type="tel" class="form-input" id="edit-udhar-phone">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Note / Address</label>
+        <input type="text" class="form-input" id="edit-udhar-note">
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-sec" style="color:var(--error); border-color:var(--error);" onclick="deleteUdharPerson()">🗑️ Delete Khata</button>
+        <button class="btn-primary" style="margin-top:0;" onclick="submitEditUdharPerson()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Add Udhar Transaction Modal -->
+  <div class="modal-overlay" id="modal-add-udhar-tx" style="display:none;">
+    <div class="modal">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 id="modal-udhar-tx-title" style="font-size:16px; color:#fff; margin:0;">💵 Len-Den Entry</h3>
+        <button onclick="closeAddUdharTxModal()" style="background:transparent; border:none; color:var(--text-sec); font-size:20px; cursor:pointer;">✕</button>
+      </div>
+
+      <!-- Type Toggle -->
+      <div class="udhar-type-toggle">
+        <button type="button" class="udhar-type-btn active-gave" id="btn-toggle-gave" onclick="setUdharTxType('GAVE')">
+          🔴 Maine Diya<br><small>(Udhar Dena)</small>
+        </button>
+        <button type="button" class="udhar-type-btn" id="btn-toggle-got" onclick="setUdharTxType('GOT')">
+          🟢 Mujhe Mila<br><small>(Wapas Aana)</small>
+        </button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Kiske Saath Len-Den Hua? (Select Person)</label>
+        <select class="form-select" id="udhar-tx-person-select">
+          <!-- Populated dynamically -->
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Raqam / Amount (₹) *</label>
+        <input type="number" class="form-input" id="udhar-tx-amount" placeholder="0" style="font-size:22px; font-weight:800; color:#fff;">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Tareeq (Date)</label>
+        <input type="date" class="form-input" id="udhar-tx-date">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Maqsad / Note (Kis baat ke liye? GPay, Cash, Bill etc.)</label>
+        <input type="text" class="form-input" id="udhar-tx-note" placeholder="e.g. GPay se bheje, Dukan ka saaman">
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-sec" onclick="closeAddUdharTxModal()">Cancel</button>
+        <button class="btn-primary" id="btn-submit-udhar-tx" style="margin-top:0; background:#e63946;" onclick="submitAddUdharTx()">Save Entry</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Udhar Full Statement & Report Modal -->
+  <div class="modal-overlay" id="modal-udhar-statement" style="display:none;">
+    <div class="modal" style="max-width:440px; max-height:85vh; overflow-y:auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="font-size:16px; color:#fff; margin:0;">📄 Udhar Khata Statement</h3>
+        <button onclick="closeUdharStatementModal()" style="background:transparent; border:none; color:var(--text-sec); font-size:20px; cursor:pointer;">✕</button>
+      </div>
+
+      <div id="udhar-statement-printable" class="statement-box">
+        <!-- Rendered statement -->
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-sec" onclick="printUdharStatement()">🖨️ Print / Save PDF</button>
+        <button class="btn-primary" style="margin-top:0; background:#2ec4b6;" onclick="exportUdharCsv()">📊 Download Excel</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Bottom Navigation: House Spend Mode -->
   <div class="tab-bar" id="tab-bar-spend">
     <button class="tab-item active" onclick="openScreen('home')">
@@ -1174,9 +1473,46 @@ function doGet(e) {
       <span class="tab-icon">🏢</span>
       <span style="color:var(--secondary); font-weight:700;">Rent</span>
     </button>
+    <button class="tab-item" onclick="switchAppMode('udhar')">
+      <span class="tab-icon">🤝</span>
+      <span style="color:#ff6b6b; font-weight:700;">Udhar</span>
+    </button>
     <button class="tab-item" onclick="openScreen('settings')">
       <span class="tab-icon">⚙️</span>
       <span>Settings</span>
+    </button>
+  </div>
+
+
+  <!-- Bottom Navigation: Udhar Khata Mode -->
+  <div class="tab-bar" id="tab-bar-udhar" style="display:none;">
+    <button class="tab-item active" id="tab-udhar-list" onclick="openUdharScreen('list')">
+      <span class="tab-icon">🤝</span>
+      <span>Khata</span>
+    </button>
+    <button class="tab-item" onclick="openAddUdharTxModal()">
+      <span class="tab-icon">➕</span>
+      <span>Len-Den</span>
+    </button>
+    <button class="tab-item" onclick="openAddUdharPersonModal()">
+      <span class="tab-icon">👤</span>
+      <span>Add Shakhs</span>
+    </button>
+    <button class="tab-item" onclick="openUdharStatementModal()">
+      <span class="tab-icon">📄</span>
+      <span>Report</span>
+    </button>
+    <button class="tab-item" onclick="switchAppMode('spend')">
+      <span class="tab-icon">🏠</span>
+      <span style="color:var(--primary-light); font-weight:700;">Ghar Kharcha</span>
+    </button>
+    <button class="tab-item" onclick="switchAppMode('rent')">
+      <span class="tab-icon">🏢</span>
+      <span style="color:var(--secondary); font-weight:700;">Rent</span>
+    </button>
+    <button class="tab-item" onclick="switchAppMode('udhar')">
+      <span class="tab-icon">🤝</span>
+      <span style="color:#ff6b6b; font-weight:700;">Udhar</span>
     </button>
   </div>
 
@@ -1201,6 +1537,10 @@ function doGet(e) {
     <button class="tab-item" onclick="switchAppMode('spend')">
       <span class="tab-icon">🏠</span>
       <span style="color:var(--primary-light); font-weight:700;">Ghar Kharcha</span>
+    </button>
+    <button class="tab-item" onclick="switchAppMode('udhar')">
+      <span class="tab-icon">🤝</span>
+      <span style="color:#ff6b6b; font-weight:700;">Udhar</span>
     </button>
   </div>
 </div>
@@ -1291,10 +1631,17 @@ function doGet(e) {
       }
     }
 
+    // Initialize Udhar Khata (लेन-देन)
+    if (!udharData) {
+      udharData = JSON.parse(JSON.stringify(defaultUdharData));
+      saveUdharData();
+    }
+
     updateCloudStatusUI();
     renderAll();
     renderRentRooms();
     renderRentAnnual();
+    renderUdharDashboard();
     setTimeout(() => { checkAppUpdates(false); }, 1500);
   }
 
@@ -1363,6 +1710,10 @@ function doGet(e) {
   function openScreen(name) {
     if (name === 'rent') {
       switchAppMode('rent');
+      return;
+    }
+    if (name === 'udhar') {
+      switchAppMode('udhar');
       return;
     }
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -2246,6 +2597,21 @@ function doGet(e) {
           closingBalance: closingBal
         }
       },
+      udharData: {
+        contacts: (udharData && udharData.contacts) ? udharData.contacts.map(c => {
+          const s = getContactStats(c.id);
+          return {
+            name: c.name,
+            phone: c.phone || '',
+            note: c.note || '',
+            totalGave: s.totalGave,
+            totalGot: s.totalGot,
+            balance: s.balance,
+            status: s.balance > 0 ? 'LENA' : (s.balance < 0 ? 'DENA' : 'SETTLED')
+          };
+        }) : [],
+        transactions: (udharData && udharData.transactions) || []
+      },
       timestamp: new Date().toLocaleString()
     };
 
@@ -2327,9 +2693,11 @@ function doGet(e) {
           if (restored.settings) settings = restored.settings;
           if (restored.expenses) expenses = restored.expenses;
           if (restored.rentData) rentData = restored.rentData;
+          if (restored.udharData) udharData = restored.udharData;
           saveData();
           renderAll();
           if (rentData) renderRentRooms();
+          if (udharData) renderUdharDashboard();
           alert('✅ Data successfully restored from backup!');
         } catch (err) {
           alert('Invalid backup file.');
@@ -2341,7 +2709,7 @@ function doGet(e) {
   }
 
   function exportDataBackup() {
-    const backupObj = { settings, expenses, rentData, exportedAt: new Date().toISOString() };
+    const backupObj = { settings, expenses, rentData, udharData, exportedAt: new Date().toISOString() };
     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupObj, null, 2));
     const dlAnchorElem = document.createElement('a');
     dlAnchorElem.setAttribute("href", dataStr);
@@ -2418,6 +2786,708 @@ function doGet(e) {
     }, 300);
   }
 
+
+  /* ==================== 🤝 UDHAR KHATA (लेन-देन / CREDIT-DEBIT LEDGER) ==================== */
+  const defaultUdharData = {
+    contacts: [
+      { id: 'u_1', name: 'Zahid Khan', phone: '9876543210', note: 'Colleague', createdAt: new Date().toISOString() },
+      { id: 'u_2', name: 'Aslam Mistri', phone: '9812345678', note: 'Plumber / Contractor', createdAt: new Date().toISOString() }
+    ],
+    transactions: [
+      { id: 'tx_1', contactId: 'u_1', type: 'GAVE', amount: 5000, date: new Date().toISOString().split('T')[0], note: 'Emergency loan via GPay', createdAt: new Date().toISOString() },
+      { id: 'tx_2', contactId: 'u_1', type: 'GOT', amount: 2000, date: new Date().toISOString().split('T')[0], note: 'Partial wapas mila cash', createdAt: new Date().toISOString() }
+    ]
+  };
+
+  let udharData = JSON.parse(localStorage.getItem('hs_udhar_data_v1') || 'null');
+  let activeUdharFilter = 'all'; // 'all', 'receive', 'pay', 'settled'
+  let currentLedgerPersonId = null;
+  let currentTxModalType = 'GAVE'; // 'GAVE' or 'GOT'
+
+  function saveUdharData() {
+    localStorage.setItem('hs_udhar_data_v1', JSON.stringify(udharData));
+  }
+
+  function getContactStats(contactId) {
+    if (!udharData) return { totalGave: 0, totalGot: 0, balance: 0, status: 'SETTLED', txCount: 0, lastTx: null };
+    const txs = (udharData.transactions || []).filter(t => t.contactId === contactId);
+    let totalGave = 0;
+    let totalGot = 0;
+    txs.forEach(t => {
+      const amt = Number(t.amount || 0);
+      if (t.type === 'GAVE') totalGave += amt;
+      else if (t.type === 'GOT') totalGot += amt;
+    });
+    const balance = totalGave - totalGot;
+    const sortedTxs = [...txs].sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || '').localeCompare(a.createdAt || ''));
+    return {
+      totalGave,
+      totalGot,
+      balance,
+      status: balance > 0 ? 'RECEIVE' : (balance < 0 ? 'PAY' : 'SETTLED'),
+      txCount: txs.length,
+      lastTx: sortedTxs[0] || null
+    };
+  }
+
+  function getUdharOverallStats() {
+    let totalToReceive = 0; // Kul Lena Hai
+    let totalToPay = 0;     // Kul Dena Hai
+    const contacts = (udharData && udharData.contacts) || [];
+    contacts.forEach(c => {
+      const s = getContactStats(c.id);
+      if (s.balance > 0) totalToReceive += s.balance;
+      else if (s.balance < 0) totalToPay += Math.abs(s.balance);
+    });
+    const netBalance = totalToReceive - totalToPay;
+    return {
+      totalToReceive,
+      totalToPay,
+      netBalance,
+      contactsCount: contacts.length
+    };
+  }
+
+  function openUdharScreen(screenName, personId = null) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const tabBarUdhar = document.getElementById('tab-bar-udhar');
+    if (tabBarUdhar) {
+      tabBarUdhar.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    }
+
+    if (screenName === 'list') {
+      const el = document.getElementById('screen-udhar-list');
+      if (el) el.classList.add('active');
+      const tab = document.getElementById('tab-udhar-list');
+      if (tab) tab.classList.add('active');
+      renderUdharDashboard();
+    } else if (screenName === 'ledger' && personId) {
+      currentLedgerPersonId = personId;
+      const el = document.getElementById('screen-udhar-ledger');
+      if (el) el.classList.add('active');
+      renderPersonLedger(personId);
+    }
+  }
+
+  function renderUdharDashboard() {
+    if (!udharData) {
+      udharData = JSON.parse(JSON.stringify(defaultUdharData));
+      saveUdharData();
+    }
+
+    const stats = getUdharOverallStats();
+    const netEl = document.getElementById('udhar-net-balance');
+    const statusSubEl = document.getElementById('udhar-status-sub');
+    const recEl = document.getElementById('udhar-total-receive');
+    const payEl = document.getElementById('udhar-total-pay');
+    const countEl = document.getElementById('udhar-total-contacts-pill');
+
+    if (netEl) {
+      if (stats.netBalance > 0) {
+        netEl.innerHTML = `<span style="color:#ff6b6b;">+ ₹${stats.netBalance.toLocaleString('en-IN')}</span>`;
+        if (statusSubEl) statusSubEl.innerText = 'Total Lena Hai (Surplus)';
+      } else if (stats.netBalance < 0) {
+        netEl.innerHTML = `<span style="color:#2ec4b6;">- ₹${Math.abs(stats.netBalance).toLocaleString('en-IN')}</span>`;
+        if (statusSubEl) statusSubEl.innerText = 'Total Dena Hai (Deficit)';
+      } else {
+        netEl.innerText = '₹0';
+        if (statusSubEl) statusSubEl.innerText = 'Sab Hisaab Barabar';
+      }
+    }
+
+    if (recEl) recEl.innerText = `₹${stats.totalToReceive.toLocaleString('en-IN')}`;
+    if (payEl) payEl.innerText = `₹${stats.totalToPay.toLocaleString('en-IN')}`;
+    if (countEl) countEl.innerText = `${stats.contactsCount} Log`;
+
+    renderUdharContacts();
+  }
+
+  function setUdharFilter(filter) {
+    activeUdharFilter = filter;
+    ['all', 'receive', 'pay', 'settled'].forEach(f => {
+      const el = document.getElementById('filter-udhar-' + f);
+      if (el) {
+        if (f === filter) el.classList.add('active');
+        else el.classList.remove('active');
+      }
+    });
+    renderUdharContacts();
+  }
+
+  function filterUdharContacts() {
+    renderUdharContacts();
+  }
+
+  function renderUdharContacts() {
+    const container = document.getElementById('udhar-contacts-container');
+    if (!container) return;
+
+    const contacts = (udharData && udharData.contacts) || [];
+    const searchVal = (document.getElementById('udhar-search-input')?.value || '').toLowerCase().trim();
+
+    if (contacts.length === 0) {
+      container.innerHTML = `
+        <div style="text-align:center; padding:35px 15px; color:var(--text-sec);">
+          <p style="font-size:36px; margin-bottom:8px;">🤝</p>
+          <p style="font-size:14px; font-weight:700; color:#fff;">Koi Udhar Khata Nahi Hai</p>
+          <p style="font-size:12px; margin-top:4px;">Naya shakhs add karne ke liye "+ Naya Shakhs" button dabayein.</p>
+        </div>`;
+      return;
+    }
+
+    let filtered = contacts.filter(c => {
+      const s = getContactStats(c.id);
+      if (activeUdharFilter === 'receive' && s.balance <= 0) return false;
+      if (activeUdharFilter === 'pay' && s.balance >= 0) return false;
+      if (activeUdharFilter === 'settled' && s.balance !== 0) return false;
+
+      if (searchVal) {
+        const nameMatch = (c.name || '').toLowerCase().includes(searchVal);
+        const phoneMatch = (c.phone || '').toLowerCase().includes(searchVal);
+        const noteMatch = (c.note || '').toLowerCase().includes(searchVal);
+        if (!nameMatch && !phoneMatch && !noteMatch) return false;
+      }
+      return true;
+    });
+
+    if (filtered.length === 0) {
+      container.innerHTML = `
+        <div style="text-align:center; padding:30px 15px; color:var(--text-sec); font-size:12px;">
+          Is filter ya search ke mutabiq koi shakhs nahi mila.
+        </div>`;
+      return;
+    }
+
+    let html = '';
+    filtered.forEach(c => {
+      const s = getContactStats(c.id);
+      const initials = (c.name || 'U').split(' ').map(n => n[0]).join('').slice(0, 2);
+
+      let balanceHtml = '';
+      if (s.balance > 0) {
+        balanceHtml = `
+          <div style="text-align:right;">
+            <div style="color:#ff6b6b; font-weight:800; font-size:15px;">₹${s.balance.toLocaleString('en-IN')}</div>
+            <span style="font-size:10px; font-weight:700; color:#ff6b6b; background:rgba(230,57,70,0.15); padding:2px 6px; border-radius:4px;">LENA HAI</span>
+          </div>`;
+      } else if (s.balance < 0) {
+        balanceHtml = `
+          <div style="text-align:right;">
+            <div style="color:#2ec4b6; font-weight:800; font-size:15px;">₹${Math.abs(s.balance).toLocaleString('en-IN')}</div>
+            <span style="font-size:10px; font-weight:700; color:#2ec4b6; background:rgba(42,157,143,0.15); padding:2px 6px; border-radius:4px;">DENA HAI</span>
+          </div>`;
+      } else {
+        balanceHtml = `
+          <div style="text-align:right;">
+            <div style="color:var(--text-sec); font-size:13px; font-weight:700;">₹0</div>
+            <span style="font-size:10px; color:var(--text-sec);">Barabar</span>
+          </div>`;
+      }
+
+      let lastTxInfo = 'Naya Khata (No entries)';
+      if (s.lastTx) {
+        const badge = s.lastTx.type === 'GAVE' ? '🔴 Diya' : '🟢 Mila';
+        lastTxInfo = `${badge} ₹${Number(s.lastTx.amount).toLocaleString('en-IN')} • ${s.lastTx.date}`;
+      }
+
+      html += `
+      <div class="udhar-contact-card" onclick="openPersonLedger('${c.id}')">
+        <div style="display:flex; align-items:center; flex:1; min-width:0;">
+          <div class="udhar-avatar">${escapeHtml(initials)}</div>
+          <div style="min-width:0; padding-right:10px;">
+            <div style="font-size:14px; font-weight:700; color:#fff; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">
+              ${escapeHtml(c.name)}
+            </div>
+            <div style="font-size:11px; color:var(--text-sec); margin-top:2px;">
+              ${c.phone ? '📞 ' + escapeHtml(c.phone) : (c.note ? escapeHtml(c.note) : 'Contact')}
+            </div>
+            <div style="font-size:10px; color:rgba(255,255,255,0.5); margin-top:3px;">
+              ${lastTxInfo}
+            </div>
+          </div>
+        </div>
+        ${balanceHtml}
+      </div>`;
+    });
+
+    container.innerHTML = html;
+  }
+
+  function openPersonLedger(personId) {
+    openUdharScreen('ledger', personId);
+  }
+
+  function closePersonLedger() {
+    openUdharScreen('list');
+  }
+
+  function renderPersonLedger(personId) {
+    const contact = (udharData && udharData.contacts && udharData.contacts.find(c => c.id === personId));
+    if (!contact) return;
+
+    currentLedgerPersonId = personId;
+    const stats = getContactStats(personId);
+
+    document.getElementById('ledger-person-name').innerText = contact.name || 'Unknown';
+    document.getElementById('ledger-person-phone').innerText = contact.phone ? `📞 ${contact.phone}` : 'No phone number';
+    document.getElementById('ledger-person-note').innerText = contact.note ? `ℹ️ ${contact.note}` : '';
+
+    const callBtn = document.getElementById('ledger-call-btn');
+    if (callBtn) {
+      if (contact.phone) {
+        callBtn.style.display = 'block';
+        callBtn.onclick = () => { window.location.href = `tel:${contact.phone}`; };
+      } else {
+        callBtn.style.display = 'none';
+      }
+    }
+
+    const tagEl = document.getElementById('ledger-balance-tag');
+    const subEl = document.getElementById('ledger-balance-subtitle');
+    const cardEl = document.getElementById('ledger-summary-card');
+
+    if (stats.balance > 0) {
+      tagEl.innerText = `₹${stats.balance.toLocaleString('en-IN')}`;
+      tagEl.style.color = '#ff6b6b';
+      subEl.innerText = 'Aapko Inse LENA HAI (Pending)';
+      subEl.style.color = '#ff6b6b';
+      if (cardEl) cardEl.style.borderLeft = '4px solid #e63946';
+    } else if (stats.balance < 0) {
+      tagEl.innerText = `₹${Math.abs(stats.balance).toLocaleString('en-IN')}`;
+      tagEl.style.color = '#2ec4b6';
+      subEl.innerText = 'Aapko Inhein DENA HAI';
+      subEl.style.color = '#2ec4b6';
+      if (cardEl) cardEl.style.borderLeft = '4px solid #2a9d8f';
+    } else {
+      tagEl.innerText = '₹0';
+      tagEl.style.color = '#fff';
+      subEl.innerText = 'Hisaab Barabar (Settled)';
+      subEl.style.color = 'var(--text-sec)';
+      if (cardEl) cardEl.style.borderLeft = '4px solid var(--border)';
+    }
+
+    const gaveEl = document.getElementById('ledger-total-gave');
+    const gotEl = document.getElementById('ledger-total-got');
+    if (gaveEl) gaveEl.innerText = `₹${stats.totalGave.toLocaleString('en-IN')}`;
+    if (gotEl) gotEl.innerText = `₹${stats.totalGot.toLocaleString('en-IN')}`;
+
+    // Render transactions timeline
+    const listEl = document.getElementById('ledger-transactions-list');
+    if (!listEl) return;
+
+    const personTxs = (udharData.transactions || [])
+      .filter(t => t.contactId === personId)
+      .sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+    if (personTxs.length === 0) {
+      listEl.innerHTML = `<div style="text-align:center; padding:25px; color:var(--text-sec); font-size:12px;">Koi transaction nahi hai. Neeche diye gaye buttons se "Maine Diya" ya "Mujhe Mila" add karein.</div>`;
+      return;
+    }
+
+    let html = '';
+    personTxs.forEach(t => {
+      const isGave = t.type === 'GAVE';
+      html += `
+      <div class="udhar-tx-row">
+        <div>
+          <div style="display:flex; align-items:center; gap:6px;">
+            <span class="${isGave ? 'udhar-badge-gave' : 'udhar-badge-got'}">
+              ${isGave ? '🔴 Maine Diya' : '🟢 Mujhe Mila'}
+            </span>
+            <span style="font-size:11px; color:var(--text-sec);">${t.date}</span>
+          </div>
+          <div style="font-size:12px; color:#fff; margin-top:4px; font-weight:600;">
+            ${escapeHtml(t.note || (isGave ? 'Udhar Diya' : 'Wapas Mila'))}
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:15px; font-weight:800; color:${isGave ? '#ff6b6b' : '#2ec4b6'};">
+            ${isGave ? '-' : '+'} ₹${Number(t.amount).toLocaleString('en-IN')}
+          </div>
+          <button onclick="deleteUdharTx('${t.id}')" style="background:transparent; border:none; color:var(--error); font-size:10px; cursor:pointer; padding:2px; margin-top:2px;">🗑️ Delete</button>
+        </div>
+      </div>`;
+    });
+
+    listEl.innerHTML = html;
+  }
+
+  function openAddUdharPersonModal() {
+    document.getElementById('new-udhar-name').value = '';
+    document.getElementById('new-udhar-phone').value = '';
+    document.getElementById('new-udhar-note').value = '';
+    document.getElementById('new-udhar-opening-amt').value = '0';
+    document.getElementById('new-udhar-opening-type').value = 'NONE';
+    const modal = document.getElementById('modal-add-udhar-person');
+    if (modal) modal.style.display = 'flex';
+  }
+
+  function closeAddUdharPersonModal() {
+    const modal = document.getElementById('modal-add-udhar-person');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function submitAddUdharPerson() {
+    const nameVal = document.getElementById('new-udhar-name').value.trim();
+    const phoneVal = document.getElementById('new-udhar-phone').value.trim();
+    const noteVal = document.getElementById('new-udhar-note').value.trim();
+    const openAmt = parseFloat(document.getElementById('new-udhar-opening-amt').value) || 0;
+    const openType = document.getElementById('new-udhar-opening-type').value;
+
+    if (!nameVal) {
+      alert('Kripya shakhs ka naam likhein.');
+      return;
+    }
+
+    if (!udharData.contacts) udharData.contacts = [];
+    if (!udharData.transactions) udharData.transactions = [];
+
+    const newPersonId = 'u_' + Date.now();
+    const newPerson = {
+      id: newPersonId,
+      name: nameVal,
+      phone: phoneVal,
+      note: noteVal,
+      createdAt: new Date().toISOString()
+    };
+
+    udharData.contacts.push(newPerson);
+
+    if (openAmt > 0 && openType !== 'NONE') {
+      udharData.transactions.push({
+        id: 'tx_' + Date.now(),
+        contactId: newPersonId,
+        type: openType,
+        amount: openAmt,
+        date: new Date().toISOString().split('T')[0],
+        note: 'Pehle ka opening balance',
+        createdAt: new Date().toISOString()
+      });
+    }
+
+    saveUdharData();
+    closeAddUdharPersonModal();
+    renderUdharDashboard();
+
+    if (settings && settings.autoSyncGoogleSheet && settings.sheetId) {
+      syncToGoogleSheet(true);
+    }
+  }
+
+  function openEditUdharPersonModal(personId) {
+    const contact = (udharData.contacts || []).find(c => c.id === personId);
+    if (!contact) return;
+
+    document.getElementById('edit-udhar-person-id').value = contact.id;
+    document.getElementById('edit-udhar-name').value = contact.name || '';
+    document.getElementById('edit-udhar-phone').value = contact.phone || '';
+    document.getElementById('edit-udhar-note').value = contact.note || '';
+
+    const modal = document.getElementById('modal-edit-udhar-person');
+    if (modal) modal.style.display = 'flex';
+  }
+
+  function closeEditUdharPersonModal() {
+    const modal = document.getElementById('modal-edit-udhar-person');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function submitEditUdharPerson() {
+    const id = document.getElementById('edit-udhar-person-id').value;
+    const contact = (udharData.contacts || []).find(c => c.id === id);
+    if (!contact) return;
+
+    contact.name = document.getElementById('edit-udhar-name').value.trim() || contact.name;
+    contact.phone = document.getElementById('edit-udhar-phone').value.trim();
+    contact.note = document.getElementById('edit-udhar-note').value.trim();
+
+    saveUdharData();
+    closeEditUdharPersonModal();
+    renderPersonLedger(id);
+    renderUdharDashboard();
+  }
+
+  function deleteUdharPerson() {
+    const id = document.getElementById('edit-udhar-person-id').value;
+    const contact = (udharData.contacts || []).find(c => c.id === id);
+    if (!contact) return;
+
+    if (!confirm(`Kya aap waqai "${contact.name}" aur unke sabhi len-den delete karna chahte hain?`)) return;
+
+    udharData.contacts = (udharData.contacts || []).filter(c => c.id !== id);
+    udharData.transactions = (udharData.transactions || []).filter(t => t.contactId !== id);
+
+    saveUdharData();
+    closeEditUdharPersonModal();
+    openUdharScreen('list');
+  }
+
+  function openAddUdharTxModal(prefillType = 'GAVE', prefillPersonId = null) {
+    currentTxModalType = prefillType;
+    setUdharTxType(prefillType);
+
+    // Populate contacts dropdown
+    const selectEl = document.getElementById('udhar-tx-person-select');
+    if (selectEl) {
+      selectEl.innerHTML = (udharData.contacts || []).map(c => 
+        `<option value="${c.id}" ${prefillPersonId === c.id ? 'selected' : ''}>${escapeHtml(c.name)} ${c.phone ? '(' + c.phone + ')' : ''}</option>`
+      ).join('');
+    }
+
+    document.getElementById('udhar-tx-amount').value = '';
+    document.getElementById('udhar-tx-date').value = new Date().toISOString().split('T')[0];
+    document.getElementById('udhar-tx-note').value = '';
+
+    const modal = document.getElementById('modal-add-udhar-tx');
+    if (modal) modal.style.display = 'flex';
+  }
+
+  function closeAddUdharTxModal() {
+    const modal = document.getElementById('modal-add-udhar-tx');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function setUdharTxType(type) {
+    currentTxModalType = type;
+    const btnGave = document.getElementById('btn-toggle-gave');
+    const btnGot = document.getElementById('btn-toggle-got');
+    const submitBtn = document.getElementById('btn-submit-udhar-tx');
+    const titleEl = document.getElementById('modal-udhar-tx-title');
+
+    if (type === 'GAVE') {
+      if (btnGave) btnGave.className = 'udhar-type-btn active-gave';
+      if (btnGot) btnGot.className = 'udhar-type-btn';
+      if (submitBtn) { submitBtn.style.background = '#e63946'; submitBtn.innerText = '🔴 Save Maine Diya'; }
+      if (titleEl) titleEl.innerText = '🔴 Maine Diya (उधार दिया)';
+    } else {
+      if (btnGot) btnGot.className = 'udhar-type-btn active-got';
+      if (btnGave) btnGave.className = 'udhar-type-btn';
+      if (submitBtn) { submitBtn.style.background = '#2ec4b6'; submitBtn.innerText = '🟢 Save Mujhe Mila'; }
+      if (titleEl) titleEl.innerText = '🟢 Mujhe Mila (वापस मिला)';
+    }
+  }
+
+  function submitAddUdharTx() {
+    const personId = document.getElementById('udhar-tx-person-select').value;
+    const amountVal = parseFloat(document.getElementById('udhar-tx-amount').value);
+    const dateVal = document.getElementById('udhar-tx-date').value;
+    const noteVal = document.getElementById('udhar-tx-note').value.trim();
+
+    if (!personId) {
+      alert('Pehle shakhs chunein ya naya shakhs add karein.');
+      return;
+    }
+    if (isNaN(amountVal) || amountVal <= 0) {
+      alert('Kripya sahi raqam (amount) daalein.');
+      return;
+    }
+    if (!dateVal) {
+      alert('Kripya tareeq chunein.');
+      return;
+    }
+
+    if (!udharData.transactions) udharData.transactions = [];
+
+    const newTx = {
+      id: 'tx_' + Date.now(),
+      contactId: personId,
+      type: currentTxModalType,
+      amount: amountVal,
+      date: dateVal,
+      note: noteVal,
+      createdAt: new Date().toISOString()
+    };
+
+    udharData.transactions.push(newTx);
+    saveUdharData();
+    closeAddUdharTxModal();
+
+    if (currentLedgerPersonId === personId) {
+      renderPersonLedger(personId);
+    }
+    renderUdharDashboard();
+
+    if (settings && settings.autoSyncGoogleSheet && settings.sheetId) {
+      syncToGoogleSheet(true);
+    }
+  }
+
+  function deleteUdharTx(txId) {
+    if (!confirm('Kya aap waqai ye len-den entry delete karna chahte hain?')) return;
+    udharData.transactions = (udharData.transactions || []).filter(t => t.id !== txId);
+    saveUdharData();
+    if (currentLedgerPersonId) {
+      renderPersonLedger(currentLedgerPersonId);
+    }
+    renderUdharDashboard();
+  }
+
+  function shareWhatsAppReminder(personId) {
+    const contact = (udharData.contacts || []).find(c => c.id === personId);
+    if (!contact) return;
+
+    const stats = getContactStats(personId);
+    let msg = `Namaste *${contact.name}* ji,\n`;
+
+    if (stats.balance > 0) {
+      msg += `Aapke pass hamara udhar balance *₹${stats.balance.toLocaleString('en-IN')}* baqi (LENA HAI).\n\n`;
+      msg += `Kripya suvidhanusar jald se jald ada karein.\n`;
+    } else if (stats.balance < 0) {
+      msg += `Hamare pass aapka *₹${Math.abs(stats.balance).toLocaleString('en-IN')}* baqi (DENA HAI).\n`;
+    } else {
+      msg += `Hamara aur aapka hisaab bilkul barabar (settled) hai.\n`;
+    }
+
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `📊 *Hisaab Summary:*\n`;
+    msg += `• Kul Diya: ₹${stats.totalGave.toLocaleString('en-IN')}\n`;
+    msg += `• Kul Wapas Mila: ₹${stats.totalGot.toLocaleString('en-IN')}\n`;
+    msg += `• Net Baqi: ₹${Math.abs(stats.balance).toLocaleString('en-IN')} (${stats.balance > 0 ? 'LENA' : 'DENA'})\n`;
+    msg += `━━━━━━━━━━━━━━━━━━━━━\n`;
+    msg += `_Sent via House Spend & Udhar Khata App_`;
+
+    let waUrl = `https://wa.me/`;
+    if (contact.phone) {
+      let cleanPhone = contact.phone.replace(/[^0-9]/g, '');
+      if (cleanPhone.length === 10) cleanPhone = '91' + cleanPhone;
+      waUrl += `${cleanPhone}?text=${encodeURIComponent(msg)}`;
+    } else {
+      waUrl += `?text=${encodeURIComponent(msg)}`;
+    }
+
+    openExternalUrl(waUrl);
+  }
+
+  function openUdharStatementModal() {
+    const container = document.getElementById('udhar-statement-printable');
+    if (!container) return;
+
+    const stats = getUdharOverallStats();
+    const contacts = (udharData && udharData.contacts) || [];
+
+    let rowsHtml = '';
+    contacts.forEach(c => {
+      const s = getContactStats(c.id);
+      rowsHtml += `
+      <tr>
+        <td><strong>${escapeHtml(c.name)}</strong><br><small>${c.phone || '-'}</small></td>
+        <td style="text-align:right;">₹${s.totalGave.toLocaleString('en-IN')}</td>
+        <td style="text-align:right; color:#2ec4b6;">₹${s.totalGot.toLocaleString('en-IN')}</td>
+        <td style="text-align:right; font-weight:bold; color:${s.balance > 0 ? '#ff6b6b' : (s.balance < 0 ? '#2ec4b6' : '#555')};">
+          ₹${Math.abs(s.balance).toLocaleString('en-IN')} ${s.balance > 0 ? '(LENA)' : (s.balance < 0 ? '(DENA)' : '')}
+        </td>
+        <td><small>${s.lastTx ? s.lastTx.date : 'None'}</small></td>
+      </tr>`;
+    });
+
+    container.innerHTML = `
+      <div style="font-family: Arial, sans-serif; color:#111; line-height:1.4;">
+        <div style="text-align:center; border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 12px;">
+          <h2 style="margin:0; font-size:18px; text-transform:uppercase;">UDHAR KHATA REGISTER (लेन-देन)</h2>
+          <div style="font-size:12px; color:#555; margin-top:2px;">Credit / Debit & Loan Passbook Statement</div>
+          <div style="font-size:12px; font-weight:bold; margin-top:4px; color:#4361ee;">As of: ${new Date().toLocaleDateString()}</div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; background:#f4f7f6; padding:8px 12px; border-radius:6px; margin-bottom:12px; font-size:12px;">
+          <div>Kul Lena Hai (Pending): <strong style="color:#d90429;">₹${stats.totalToReceive.toLocaleString('en-IN')}</strong></div>
+          <div>Kul Dena Hai: <strong style="color:#2ec4b6;">₹${stats.totalToPay.toLocaleString('en-IN')}</strong></div>
+          <div>Net Balance: <strong>₹${Math.abs(stats.netBalance).toLocaleString('en-IN')} ${stats.netBalance >= 0 ? '(Surplus)' : '(Deficit)'}</strong></div>
+        </div>
+
+        <table style="width:100%; border-collapse:collapse; font-size:11px; margin-bottom:12px;" border="1" cellpadding="5">
+          <thead style="background:#e9ecef;">
+            <tr>
+              <th>Shakhs (Person)</th>
+              <th>Kul Diya</th>
+              <th>Kul Mila</th>
+              <th>Net Balance</th>
+              <th>Last Activity</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml || '<tr><td colspan="5" style="text-align:center;">Koi record nahi mila</td></tr>'}
+          </tbody>
+        </table>
+
+        <div style="font-size:10px; color:#666; text-align:right;">
+          Generated on: ${new Date().toLocaleString()} | House Spend & Udhar Khata App
+        </div>
+      </div>
+    `;
+
+    const modal = document.getElementById('modal-udhar-statement');
+    if (modal) modal.style.display = 'flex';
+  }
+
+  function closeUdharStatementModal() {
+    const modal = document.getElementById('modal-udhar-statement');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function printUdharStatement() {
+    const content = document.getElementById('udhar-statement-printable');
+    if (!content) return;
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Udhar Khata Statement - ${new Date().toLocaleDateString()}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; color: #111; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th, td { border: 1px solid #ccc; padding: 6px; font-size: 11px; }
+            th { background: #f0f0f0; }
+          </style>
+        </head>
+        <body>
+          ${content.innerHTML}
+          <script>
+            window.onload = function() { window.print(); window.close(); }
+          <\/script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  }
+
+  function exportUdharCsv() {
+    const contacts = (udharData && udharData.contacts) || [];
+    let csv = `UDHAR KHATA LEDGER STATEMENT\n`;
+    csv += `Exported At,${new Date().toLocaleString()}\n\n`;
+
+    csv += `=== CONTACTS BALANCE SUMMARY ===\n`;
+    csv += `Name,Mobile,Kul Diya (₹),Kul Mila (₹),Net Balance (₹),Status,Last Note\n`;
+
+    contacts.forEach(c => {
+      const s = getContactStats(c.id);
+      const statusText = s.balance > 0 ? 'LENA HAI' : (s.balance < 0 ? 'DENA HAI' : 'BARABAR');
+      const lastNote = s.lastTx ? (s.lastTx.note || '') : '';
+      csv += `"${c.name}","${c.phone || ''}",${s.totalGave},${s.totalGot},${s.balance},"${statusText}","${lastNote.replace(/"/g, '""')}"\n`;
+    });
+
+    csv += `\n=== DETAILED TRANSACTIONS LOG ===\n`;
+    csv += `Date,Contact Name,Type,Amount (₹),Note\n`;
+
+    const txs = [...(udharData.transactions || [])].sort((a,b) => (b.date || '').localeCompare(a.date || ''));
+    txs.forEach(t => {
+      const c = contacts.find(co => co.id === t.contactId);
+      const cName = c ? c.name : 'Unknown';
+      const typeLabel = t.type === 'GAVE' ? 'Maine Diya' : 'Mujhe Mila';
+      csv += `"${t.date}","${cName}","${typeLabel}",${t.amount},"${(t.note || '').replace(/"/g, '""')}"\n`;
+    });
+
+    const fileName = `Udhar_Khata_Statement_${new Date().toISOString().split('T')[0]}.csv`;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+
+    if (window.AndroidNative && typeof window.AndroidNative.shareBackup === 'function') {
+      window.AndroidNative.shareBackup(fileName, csv);
+      return;
+    }
+
+    downloadBlob(blob, fileName);
+    alert('✅ Udhar Khata Excel (.csv) file download ho gayi!');
+  }
+
   /* ==================== 🏢 RENT COLLECTION & PROPERTY MODULE ==================== */
   function escapeHtml(str) {
     if (!str) return '';
@@ -2463,21 +3533,26 @@ function doGet(e) {
     appMode = mode;
     const pillSpend = document.getElementById('pill-mode-spend');
     const pillRent = document.getElementById('pill-mode-rent');
+    const pillUdhar = document.getElementById('pill-mode-udhar');
     const tabBarSpend = document.getElementById('tab-bar-spend');
     const tabBarRent = document.getElementById('tab-bar-rent');
+    const tabBarUdhar = document.getElementById('tab-bar-udhar');
+
+    [pillSpend, pillRent, pillUdhar].forEach(p => { if (p) p.classList.remove('active'); });
+    [tabBarSpend, tabBarRent, tabBarUdhar].forEach(t => { if (t) t.style.display = 'none'; });
 
     if (mode === 'spend') {
       if (pillSpend) pillSpend.classList.add('active');
-      if (pillRent) pillRent.classList.remove('active');
       if (tabBarSpend) tabBarSpend.style.display = 'flex';
-      if (tabBarRent) tabBarRent.style.display = 'none';
       openScreen('home');
-    } else {
+    } else if (mode === 'rent') {
       if (pillRent) pillRent.classList.add('active');
-      if (pillSpend) pillSpend.classList.remove('active');
       if (tabBarRent) tabBarRent.style.display = 'flex';
-      if (tabBarSpend) tabBarSpend.style.display = 'none';
       openRentScreen(activeRentScreen || 'rooms');
+    } else if (mode === 'udhar') {
+      if (pillUdhar) pillUdhar.classList.add('active');
+      if (tabBarUdhar) tabBarUdhar.style.display = 'flex';
+      openUdharScreen('list');
     }
   }
 
@@ -2859,7 +3934,25 @@ function doGet(e) {
 
     const lastYear = (parseInt(selYear, 10) - 1).toString();
     
-    // Carry forward calculation:
+          // 3. Udhar Khata (लेन-देन) Tab
+      if (payload.udharData && payload.udharData.contacts && payload.udharData.contacts.length > 0) {
+        var uSheet = ss.getSheetByName("Udhar_Khata") || ss.insertSheet("Udhar_Khata");
+        uSheet.clear();
+        uSheet.getRange("A1:G1").setValues([["Shakhs Name", "Phone", "Note", "Kul Diya (₹)", "Kul Mila (₹)", "Net Balance (₹)", "Status"]])
+              .setBackground("#7209B7").setFontColor("#FFFFFF").setFontWeight("bold");
+        var uRows = [];
+        var uContacts = payload.udharData.contacts || [];
+        for (var u = 0; u < uContacts.length; u++) {
+          var uc = uContacts[u];
+          uRows.push([uc.name, uc.phone, uc.note, uc.totalGave, uc.totalGot, uc.balance, uc.status]);
+        }
+        if (uRows.length > 0) {
+          uSheet.getRange(2, 1, uRows.length, 7).setValues(uRows);
+        }
+        uSheet.autoResizeColumns(1, 7);
+      }
+
+      // Carry forward calculation:
     let lastYearBal = 0;
     if (rentData.yearlyCarryForwards && rentData.yearlyCarryForwards[lastYear] !== undefined) {
       lastYearBal = Number(rentData.yearlyCarryForwards[lastYear]);
@@ -3326,6 +4419,9 @@ function doGet(e) {
     localStorage.setItem('hs_expenses_v3', JSON.stringify(expenses));
     if (rentData) {
       localStorage.setItem('hs_rent_data_v1', JSON.stringify(rentData));
+    }
+    if (udharData) {
+      localStorage.setItem('hs_udhar_data_v1', JSON.stringify(udharData));
     }
   }
 
