@@ -1010,6 +1010,12 @@ function doPost(e) {
     var payload = JSON.parse(e.postData.contents);
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var curMonth = payload.month || "CurrentMonth";
+    var monthsToProcess = payload.monthsList || [{
+      month: curMonth,
+      rows: payload.rows || [],
+      rentRooms: (payload.rentData && payload.rentData.rooms) || [],
+      maintenance: (payload.rentData && payload.rentData.maintenance) || []
+    }];
 
     // 1. MASTER_OVERVIEW SHEET (1-Page Executive Printable Summary)
     var masterSheet = ss.getSheetByName("MASTER_OVERVIEW") || ss.insertSheet("MASTER_OVERVIEW", 0);
@@ -1020,7 +1026,7 @@ function doPost(e) {
                .setBackground("#1E293B").setFontColor("#FFFFFF").setFontWeight("bold").setFontSize(14)
                .setHorizontalAlignment("center");
     masterSheet.getRange("A2:G2").merge()
-               .setValue("Period / Month: " + curMonth + "  |  Last Synced: " + (payload.timestamp || new Date().toLocaleString()) + "  |  Currency: INR (₹)")
+               .setValue("Current Period: " + curMonth + "  |  Active Months Synced: " + monthsToProcess.length + "  |  Last Synced: " + (payload.timestamp || new Date().toLocaleString()))
                .setBackground("#334155").setFontColor("#E2E8F0").setFontSize(10)
                .setHorizontalAlignment("center");
 
@@ -1051,7 +1057,6 @@ function doPost(e) {
       totBaki += Number(rRooms[i].balance || 0);
     }
     var totMaint = (rData.maintenance || []).reduce(function(acc, m){ return acc + Number(m.amount || 0); }, 0);
-    var netSurplus = totPaid - totMaint;
 
     masterSheet.getRange(mRow, 1, 1, 6).merge()
                .setValue("🏢 2. 8-ROOM RENTAL PROPERTY (मकान किराया व मेंटेनेंस)")
@@ -1062,7 +1067,7 @@ function doPost(e) {
                .setBackground("#E0F2FE").setFontWeight("bold");
     mRow++;
     masterSheet.getRange(mRow, 1, 1, 6)
-               .setValues([[rRooms.length || 8, totDue, totPaid, totBaki, totMaint, netSurplus]])
+               .setValues([[rRooms.length || 8, totDue, totPaid, totBaki, totMaint, totPaid - totMaint]])
                .setFontWeight("bold");
     mRow += 2;
 
@@ -1089,171 +1094,113 @@ function doPost(e) {
                .setFontWeight("bold");
     masterSheet.autoResizeColumns(1, 6);
 
-    // 2. GHAR KHARCHA TAB
-    if (payload.rows && payload.rows.length > 0) {
-      var gSheetName = "Ghar_" + curMonth;
-      var gSheet = ss.getSheetByName(gSheetName) || ss.insertSheet(gSheetName);
-      gSheet.clear();
+    // 2. PROCESS ALL MONTHS (OCTOBER, NOVEMBER, DECEMBER, JANUARY...)
+    for (var mIndex = 0; mIndex < monthsToProcess.length; mIndex++) {
+      var mInfo = monthsToProcess[mIndex];
+      var mMonth = mInfo.month || curMonth;
 
-      gSheet.getRange("A1:G1").merge()
-            .setValue("🏡 GHAR KA KHARCHA & MAHWAR HISAB (घर का खर्च) - " + curMonth)
-            .setBackground("#6C63FF").setFontColor("#FFFFFF").setFontWeight("bold").setFontSize(13);
-      gSheet.getRange("A2:G2").merge()
-            .setValue("Salary: ₹" + salary + "  |  Total Spent: ₹" + totalSpent + "  |  Remaining Savings: ₹" + remaining)
-            .setBackground("#E0E7FF").setFontWeight("bold");
-
-      gSheet.getRange("A4:G4").setValues([["S.No", "Date (तारीख)", "Category (खर्च की मद)", "Person (किसका खर्च)", "Quantity (दूध लीटर)", "Amount (रकम ₹)", "Note / Details (विवरण)"]])
-            .setBackground("#6C63FF").setFontColor("#FFFFFF").setFontWeight("bold");
-
-      var gRows = [];
-      for (var k = 0; k < payload.rows.length; k++) {
-        var it = payload.rows[k];
-        gRows.push([k + 1, it.date || "", it.category || "", it.person || "", it.qty || "", it.amount || 0, it.note || ""]);
+      // A. Ghar Kharcha Tab for mMonth
+      if (mInfo.rows && mInfo.rows.length > 0) {
+        var gSheet = ss.getSheetByName("Ghar_" + mMonth) || ss.insertSheet("Ghar_" + mMonth);
+        gSheet.clear();
+        var mSpent = mInfo.rows.reduce(function(a, r){ return a + Number(r.amount || 0); }, 0);
+        gSheet.getRange("A1:G1").merge().setValue("🏡 GHAR KA KHARCHA - " + mMonth).setBackground("#6C63FF").setFontColor("#FFFFFF").setFontWeight("bold").setFontSize(13);
+        gSheet.getRange("A2:G2").merge().setValue("Salary: ₹" + salary + " | Total Spent: ₹" + mSpent + " | Savings: ₹" + (salary - mSpent)).setBackground("#E0E7FF").setFontWeight("bold");
+        gSheet.getRange("A4:G4").setValues([["S.No", "Date (तारीख)", "Category (मद)", "Person (नाम)", "Quantity (दूध)", "Amount (₹)", "Note (विवरण)"]]).setBackground("#6C63FF").setFontColor("#FFFFFF").setFontWeight("bold");
+        var gRows = [];
+        for (var k = 0; k < mInfo.rows.length; k++) {
+          var it = mInfo.rows[k];
+          gRows.push([k + 1, it.date || "", it.category || "", it.person || "", it.qty || "", it.amount || 0, it.note || ""]);
+        }
+        if (gRows.length > 0) gSheet.getRange(5, 1, gRows.length, 7).setValues(gRows);
+        gSheet.getRange(gRows.length + 5, 1, 1, 7).setValues([["TOTAL", "", "", "", "", mSpent, ""]]).setBackground("#E0E7FF").setFontWeight("bold");
+        gSheet.autoResizeColumns(1, 7);
       }
-      if (gRows.length > 0) {
-        gSheet.getRange(5, 1, gRows.length, 7).setValues(gRows);
+
+      // B. Rent Tab for mMonth
+      if (mInfo.rentRooms && mInfo.rentRooms.length > 0) {
+        var rSheet = ss.getSheetByName("Rent_" + mMonth) || ss.insertSheet("Rent_" + mMonth);
+        rSheet.clear();
+        var mRentDue = 0, mRentPaid = 0, mRentBaki = 0;
+        for (var rx = 0; rx < mInfo.rentRooms.length; rx++) {
+          mRentDue += Number(mInfo.rentRooms[rx].monthlyDue || 0);
+          mRentPaid += Number(mInfo.rentRooms[rx].paidAmount || 0);
+          mRentBaki += Number(mInfo.rentRooms[rx].balance || 0);
+        }
+        var mRentMaint = (mInfo.maintenance || []).reduce(function(a, m){ return a + Number(m.amount || 0); }, 0);
+        rSheet.getRange("A1:I1").merge().setValue("🏢 8-ROOM RENTAL PROPERTY - " + mMonth).setBackground("#0077B6").setFontColor("#FFFFFF").setFontWeight("bold").setFontSize(13);
+        rSheet.getRange("A2:I2").merge().setValue("Due: ₹" + mRentDue + " | Collected: ₹" + mRentPaid + " | Baki: ₹" + mRentBaki + " | Maintenance: ₹" + mRentMaint).setBackground("#E0F2FE").setFontWeight("bold");
+        rSheet.getRange("A4:I4").setValues([["Floor (मंज़िल)", "Room (कमरा)", "Tenant Name (किरायेदार)", "Meter No (मीटर)", "Monthly Due (₹)", "Paid (मिला ₹)", "Balance Due (₹)", "Date", "Remarks"]]).setBackground("#0077B6").setFontColor("#FFFFFF").setFontWeight("bold");
+        var rentRows = [];
+        for (var ry = 0; ry < mInfo.rentRooms.length; ry++) {
+          var rm = mInfo.rentRooms[ry];
+          rentRows.push([rm.floor, rm.room, rm.tenant, rm.meter, rm.monthlyDue, rm.paidAmount, rm.balance, rm.date, rm.remarks]);
+        }
+        if (rentRows.length > 0) rSheet.getRange(5, 1, rentRows.length, 9).setValues(rentRows);
+        var rTot = rentRows.length + 5;
+        rSheet.getRange(rTot, 1, 1, 9).setValues([["TOTAL 8 ROOMS", "", "", "", mRentDue, mRentPaid, mRentBaki, "", ""]]).setBackground("#E0F2FE").setFontWeight("bold");
+
+        // Maintenance
+        var mxRow = rTot + 2;
+        rSheet.getRange(mxRow, 1, 1, 4).merge().setValue("🛠️ HOUSE MAINTENANCE & REPAIRS").setBackground("#FF9800").setFontColor("#FFFFFF").setFontWeight("bold");
+        mxRow++;
+        rSheet.getRange(mxRow, 1, 1, 4).setValues([["Date (तारीख)", "Category (काम)", "Description / Mistri (विवरण)", "Amount (₹)"]]).setBackground("#FFE0B2").setFontWeight("bold");
+        var mItems = mInfo.maintenance || [];
+        var mEntries = [];
+        for (var mz = 0; mz < mItems.length; mz++) {
+          mEntries.push([mItems[mz].date || "", mItems[mz].category || "", mItems[mz].desc || "", mItems[mz].amount || 0]);
+        }
+        if (mEntries.length > 0) {
+          rSheet.getRange(mxRow + 1, 1, mEntries.length, 4).setValues(mEntries);
+          mxRow += mEntries.length;
+        }
+        mxRow++;
+        rSheet.getRange(mxRow, 1, 1, 4).setValues([["TOTAL MAINTENANCE", "", "", mRentMaint]]).setBackground("#FFE0B2").setFontWeight("bold");
+
+        if (rData.annualSummary) {
+          mxRow += 2;
+          rSheet.getRange(mxRow, 1, 1, 2).setValues([["Last Year Balance (पिछला बैलेंस)", rData.annualSummary.lastYearBal || 0]]).setFontWeight("bold");
+          rSheet.getRange(mxRow + 1, 1, 1, 2).setValues([["Next Year Carry Forward Balance (अगले साल जाने वाला बैलेंस)", rData.annualSummary.closingBalance || 0]]).setBackground("#D1FAE5").setFontWeight("bold");
+        }
+        rSheet.autoResizeColumns(1, 9);
       }
-      var gTotalRow = gRows.length + 5;
-      gSheet.getRange(gTotalRow, 1, 1, 7).setValues([["TOTAL", "", "", "", "", totalSpent, ""]])
-            .setBackground("#E0E7FF").setFontWeight("bold");
-      gSheet.autoResizeColumns(1, 7);
     }
 
-    // 3. RENT COLLECTION TAB
-    if (payload.rentData) {
-      var rSheetName = "Rent_" + curMonth;
-      var rSheet = ss.getSheetByName(rSheetName) || ss.insertSheet(rSheetName);
-      rSheet.clear();
-
-      rSheet.getRange("A1:I1").merge()
-            .setValue("🏢 8-ROOM RENTAL PROPERTY REGISTER (मकान किराया व मेंटेनेंस) - " + curMonth)
-            .setBackground("#0077B6").setFontColor("#FFFFFF").setFontWeight("bold").setFontSize(13);
-      rSheet.getRange("A2:I2").merge()
-            .setValue("Expected Rent: ₹" + totDue + "  |  Collected: ₹" + totPaid + "  |  Pending Baki: ₹" + totBaki + "  |  Maintenance: ₹" + totMaint + "  |  Net Surplus: ₹" + netSurplus)
-            .setBackground("#E0F2FE").setFontWeight("bold");
-
-      rSheet.getRange("A4:I4").setValues([["Floor (मंज़िल)", "Room (कमरा)", "Tenant Name (किरायेदार)", "Meter No (मीटर नंबर)", "Monthly Due (मासिक ₹)", "Paid (मिला ₹)", "Balance Due (बाकी ₹)", "Payment Date (तारीख)", "Remarks / Mode (रिमार्क्स)"]])
-            .setBackground("#0077B6").setFontColor("#FFFFFF").setFontWeight("bold");
-
-      var rentTableRows = [];
-      for (var r = 0; r < rRooms.length; r++) {
-        var rm = rRooms[r];
-        rentTableRows.push([rm.floor, rm.room, rm.tenant, rm.meter, rm.monthlyDue, rm.paidAmount, rm.balance, rm.date, rm.remarks]);
-      }
-      if (rentTableRows.length > 0) {
-        rSheet.getRange(5, 1, rentTableRows.length, 9).setValues(rentTableRows);
-      }
-      var rTotRow = rentTableRows.length + 5;
-      rSheet.getRange(rTotRow, 1, 1, 9).setValues([["TOTAL 8 ROOMS", "", "", "", totDue, totPaid, totBaki, "", ""]])
-            .setBackground("#E0F2FE").setFontWeight("bold");
-
-      var mHeadRow = rTotRow + 2;
-      rSheet.getRange(mHeadRow, 1, 1, 4).merge()
-            .setValue("🛠️ HOUSE MAINTENANCE & REPAIRS LOG (मकान मरम्मत व रखरखाव खर्च)")
-            .setBackground("#FF9800").setFontColor("#FFFFFF").setFontWeight("bold");
-      mHeadRow++;
-      rSheet.getRange(mHeadRow, 1, 1, 4).setValues([["Date (तारीख)", "Category (काम की मद)", "Description / Mistri (दुकान/मिस्त्री विवरण)", "Amount (खर्च रकम ₹)"]])
-            .setBackground("#FFE0B2").setFontWeight("bold");
-      var maintItems = rData.maintenance || [];
-      var maintRows = [];
-      for (var m = 0; m < maintItems.length; m++) {
-        maintRows.push([maintItems[m].date || "", maintItems[m].category || "", maintItems[m].desc || "", maintItems[m].amount || 0]);
-      }
-      if (maintRows.length > 0) {
-        rSheet.getRange(mHeadRow + 1, 1, maintRows.length, 4).setValues(maintRows);
-        mHeadRow += maintRows.length;
-      }
-      mHeadRow++;
-      rSheet.getRange(mHeadRow, 1, 1, 4).setValues([["TOTAL MAINTENANCE SPENT", "", "", totMaint]])
-            .setBackground("#FFE0B2").setFontWeight("bold");
-
-      if (rData.annualSummary) {
-        var aHeadRow = mHeadRow + 2;
-        rSheet.getRange(aHeadRow, 1, 1, 2).setValues([["Last Year Balance (पिछला बैलेंस)", rData.annualSummary.lastYearBal || 0]]).setFontWeight("bold");
-        rSheet.getRange(aHeadRow + 1, 1, 1, 2).setValues([["Next Year Carry Forward Balance (अगले साल जाने वाला बैलेंस)", rData.annualSummary.closingBalance || 0]]).setBackground("#D1FAE5").setFontWeight("bold");
-      }
-      rSheet.autoResizeColumns(1, 9);
-    }
-
-    // 4. UDHAR KHATA TAB
+    // 3. UDHAR KHATA TAB
     if (payload.udharData && payload.udharData.contacts && payload.udharData.contacts.length > 0) {
       var uSheet = ss.getSheetByName("Udhar_Khata") || ss.insertSheet("Udhar_Khata");
       uSheet.clear();
-
-      uSheet.getRange("A1:H1").merge()
-            .setValue("🤝 UDHAR KHATA & LEN-DEN REGISTER (उधार व लेन-देन खाता)")
-            .setBackground("#7209B7").setFontColor("#FFFFFF").setFontWeight("bold").setFontSize(13);
-      uSheet.getRange("A2:H2").merge()
-            .setValue("Kul Lena Hai (बाकी लेना): ₹" + uLena + "  |  Kul Dena Hai: ₹" + uDena + "  |  Net Position: " + (uNet >= 0 ? "+" : "-") + " ₹" + Math.abs(uNet))
-            .setBackground("#F3E8FF").setFontWeight("bold");
-
-      uSheet.getRange("A4:H4").setValues([["S.No", "Person Name (नाम)", "Mobile (फोन नंबर)", "Relation / Note (पहचान/रिश्ता)", "Kul Diya (कुल उधार दिया ₹)", "Kul Mila (कुल वापस मिला ₹)", "Net Balance (बाकी रकम ₹)", "Status (स्थिति)"]])
-            .setBackground("#7209B7").setFontColor("#FFFFFF").setFontWeight("bold");
-
+      uSheet.getRange("A1:H1").merge().setValue("🤝 UDHAR KHATA & LEN-DEN REGISTER").setBackground("#7209B7").setFontColor("#FFFFFF").setFontWeight("bold").setFontSize(13);
+      uSheet.getRange("A2:H2").merge().setValue("Kul Lena: ₹" + uLena + " | Kul Dena: ₹" + uDena + " | Net: " + (uNet >= 0 ? "+" : "-") + " ₹" + Math.abs(uNet)).setBackground("#F3E8FF").setFontWeight("bold");
+      uSheet.getRange("A4:H4").setValues([["S.No", "Person Name (नाम)", "Mobile", "Note / Relation", "Kul Diya (₹)", "Kul Mila (₹)", "Net Balance (₹)", "Status"]]).setBackground("#7209B7").setFontColor("#FFFFFF").setFontWeight("bold");
       var uRows = [];
-      var totDiya = 0, totMila = 0;
       for (var u = 0; u < uContacts.length; u++) {
         var uc = uContacts[u];
-        totDiya += Number(uc.totalGave || 0);
-        totMila += Number(uc.totalGot || 0);
         uRows.push([u + 1, uc.name, uc.phone, uc.note, uc.totalGave, uc.totalGot, uc.balance, uc.status]);
       }
-      if (uRows.length > 0) {
-        uSheet.getRange(5, 1, uRows.length, 8).setValues(uRows);
-      }
-      var uTotRow = uRows.length + 5;
-      uSheet.getRange(uTotRow, 1, 1, 8).setValues([["TOTAL", "", "", "", totDiya, totMila, uLena - uDena, ""]])
-            .setBackground("#F3E8FF").setFontWeight("bold");
+      if (uRows.length > 0) uSheet.getRange(5, 1, uRows.length, 8).setValues(uRows);
+      uSheet.getRange(uRows.length + 5, 1, 1, 8).setValues([["TOTAL", "", "", "", "", "", uLena - uDena, ""]]).setBackground("#F3E8FF").setFontWeight("bold");
 
       var txLog = payload.udharData.transactions || [];
       if (txLog.length > 0) {
-        var txRow = uTotRow + 2;
-        uSheet.getRange(txRow, 1, 1, 5).merge()
-              .setValue("📋 DETAILED TRANSACTIONS HISTORY (लेन-देन पासबुक हिस्ट्री)")
-              .setBackground("#4361EE").setFontColor("#FFFFFF").setFontWeight("bold");
-        txRow++;
-        uSheet.getRange(txRow, 1, 1, 5).setValues([["Date (तारीख)", "Person Name (नाम)", "Type (प्रकार)", "Amount (रकम ₹)", "Note / Details (विवरण)"]])
-              .setBackground("#E0E7FF").setFontWeight("bold");
-
+        var tRow = uRows.length + 7;
+        uSheet.getRange(tRow, 1, 1, 5).merge().setValue("📋 DETAILED TRANSACTIONS HISTORY (पासबुक)").setBackground("#4361EE").setFontColor("#FFFFFF").setFontWeight("bold");
+        tRow++;
+        uSheet.getRange(tRow, 1, 1, 5).setValues([["Date (तारीख)", "Person Name", "Type (प्रकार)", "Amount (₹)", "Note / Details"]]).setBackground("#E0E7FF").setFontWeight("bold");
         var txDataRows = [];
         for (var t = 0; t < txLog.length; t++) {
           var txItem = txLog[t];
-          var pName = txItem.contactName || "Unknown";
-          if (pName === "Unknown") {
-            for (var cp = 0; cp < uContacts.length; cp++) {
-              if (uContacts[cp].id === txItem.contactId) {
-                pName = uContacts[cp].name;
-                break;
-              }
-            }
-          }
-          var typeLabel = txItem.type === "GAVE" ? "🔴 Maine Diya" : "🟢 Mujhe Mila";
-          txDataRows.push([txItem.date || "", pName, typeLabel, txItem.amount || 0, txItem.note || ""]);
+          txDataRows.push([txItem.date || "", txItem.contactName || "Unknown", txItem.type === "GAVE" ? "🔴 Maine Diya" : "🟢 Mujhe Mila", txItem.amount || 0, txItem.note || ""]);
         }
-        if (txDataRows.length > 0) {
-          uSheet.getRange(txRow + 1, 1, txDataRows.length, 5).setValues(txDataRows);
-        }
+        if (txDataRows.length > 0) uSheet.getRange(tRow + 1, 1, txDataRows.length, 5).setValues(txDataRows);
       }
-
       uSheet.autoResizeColumns(1, 8);
     }
 
-    try {
-      var files = DriveApp.getFilesByName("HouseSpend_Master_Backup.json");
-      if (files.hasNext()) {
-        files.next().setContent(JSON.stringify(payload, null, 2));
-      } else {
-        DriveApp.createFile("HouseSpend_Master_Backup.json", JSON.stringify(payload, null, 2));
-      }
-    } catch (dErr) {}
-
-    return ContentService.createTextOutput(JSON.stringify({ status: "success" })).setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", monthsCount: monthsToProcess.length })).setMimeType(ContentService.MimeType.JSON);
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ status: "error", error: err.toString() })).setMimeType(ContentService.MimeType.JSON);
   }
-}
-function doGet(e) {
-  return ContentService.createTextOutput("House Spend, Rent & Udhar Master Live Sync Active!");
 }
 </textarea>
       </div>
@@ -2697,6 +2644,54 @@ function doGet(e) {
       statusEl.innerHTML = '<span style="color:var(--secondary);">⏳ Google Sheet mein data bheja ja raha hai...</span>';
     }
 
+    // 1. Gather all active months present in expenses and rent data
+    const activeMonthsSet = new Set();
+    (expenses || []).forEach(e => {
+      if (e.date && e.date.length >= 7) activeMonthsSet.add(e.date.slice(0, 7));
+    });
+    if (rentData && rentData.payments) {
+      Object.keys(rentData.payments).forEach(m => activeMonthsSet.add(m));
+    }
+    if (rentData && rentData.maintenance) {
+      rentData.maintenance.forEach(m => {
+        if (m.date && m.date.length >= 7) activeMonthsSet.add(m.date.slice(0, 7));
+      });
+    }
+    activeMonthsSet.add(currentMonth);
+    const allMonthsList = Array.from(activeMonthsSet).sort();
+
+    // 2. Prepare data for all active months
+    const allMonthsData = allMonthsList.map(mStr => {
+      const mRows = getFullMonthExportRows(mStr);
+      const mRentRooms = (rentData && rentData.rooms) ? rentData.rooms.map(r => {
+        const p = (rentData.payments && rentData.payments[mStr] && rentData.payments[mStr][r.id]) || {};
+        const paid = Number(p.paidAmount || 0);
+        const due = Number(r.rentAmount || 0);
+        return {
+          floor: r.floor,
+          room: r.name,
+          tenant: r.tenantName || 'N/A',
+          meter: r.meterNo || 'N/A',
+          monthlyDue: due,
+          paidAmount: paid,
+          balance: due - paid,
+          status: paid >= due ? 'Paid' : (paid > 0 ? 'Partial' : 'Pending'),
+          date: p.date || '',
+          remarks: p.remarks || ''
+        };
+      }) : [];
+
+      const mMaint = (rentData && rentData.maintenance) ? 
+        rentData.maintenance.filter(m => m.date && m.date.startsWith(mStr)) : [];
+
+      return {
+        month: mStr,
+        rows: mRows,
+        rentRooms: mRentRooms,
+        maintenance: mMaint
+      };
+    });
+
     const monthRows = getFullMonthExportRows(currentMonth);
     const summaryData = {
       salary: settings.totalSalary,
@@ -2744,6 +2739,7 @@ function doGet(e) {
     const payload = {
       action: 'sync_all',
       month: currentMonth,
+      monthsList: allMonthsData,
       rows: monthRows,
       summary: summaryData,
       rentData: {
