@@ -143,6 +143,10 @@
     .udhar-type-btn { flex: 1; padding: 10px; border-radius: 10px; border: 1px solid var(--border); background: var(--card); color: var(--text-sec); font-size: 12px; font-weight: 700; cursor: pointer; text-align: center; }
     .udhar-type-btn.active-gave { background: rgba(230, 57, 70, 0.25); color: #ff6b6b; border-color: #ff6b6b; }
     .udhar-type-btn.active-got { background: rgba(42, 157, 143, 0.25); color: #2ec4b6; border-color: #2ec4b6; }
+    .date-quick-btns { display: flex; gap: 6px; margin-top: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+    .date-quick-btn { background: var(--card); border: 1px solid var(--border); border-radius: 8px; color: var(--text-sec); font-size: 11px; padding: 6px 10px; cursor: pointer; white-space: nowrap; font-weight: 600; transition: 0.15s; }
+    .date-quick-btn:active { transform: scale(0.95); }
+    .date-quick-btn.active { background: var(--secondary); border-color: var(--secondary); color: #000; font-weight: 700; }
 
 
     /* Rent Specific Styles */
@@ -1408,11 +1412,24 @@ function doPost(e) {
 
       <div class="form-group">
         <label class="form-label">Opening Balance Kis Tarah Ka Hai?</label>
-        <select class="form-select" id="new-udhar-opening-type">
+        <select class="form-select" id="new-udhar-opening-type" onchange="toggleNewUdharOpeningDate()">
           <option value="NONE">Zero (Naya hisaab)</option>
           <option value="GAVE">Maine pehle udhar diya hua hai (LENA HAI)</option>
           <option value="GOT">Maine pehle udhar liya hua hai (DENA HAI)</option>
         </select>
+      </div>
+
+      <div class="form-group" id="group-new-udhar-opening-date" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+          <label class="form-label" style="margin-bottom:0;">📅 Balance Ki Tareeq (Kab Ka Hai?)</label>
+          <span id="new-udhar-opening-date-hint" style="font-size:11px; color:var(--secondary); font-weight:600;">Aaj</span>
+        </div>
+        <input type="date" class="form-input" id="new-udhar-opening-date" style="color-scheme:dark; font-size:15px; font-weight:600; cursor:pointer;" onclick="try{this.showPicker()}catch(e){}" onchange="updateUdharDateHint('new-udhar-opening-date', 'new-udhar-opening-date-hint')">
+        <div class="date-quick-btns">
+          <button type="button" class="date-quick-btn active" onclick="setUdharQuickDate('new-udhar-opening-date', 'new-udhar-opening-date-hint', 0, this)">Aaj (Today)</button>
+          <button type="button" class="date-quick-btn" onclick="setUdharQuickDate('new-udhar-opening-date', 'new-udhar-opening-date-hint', -7, this)">1 Hafta Pehle</button>
+          <button type="button" class="date-quick-btn" onclick="setUdharQuickDate('new-udhar-opening-date', 'new-udhar-opening-date-hint', -30, this)">1 Mahina Pehle</button>
+        </div>
       </div>
 
       <div class="btn-row">
@@ -1485,8 +1502,17 @@ function doPost(e) {
       </div>
 
       <div class="form-group">
-        <label class="form-label">Tareeq (Date)</label>
-        <input type="date" class="form-input" id="udhar-tx-date">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+          <label class="form-label" style="margin-bottom:0;">📅 Tareeq (Date of Transaction)</label>
+          <span id="udhar-tx-date-hint" style="font-size:11px; color:var(--secondary); font-weight:600;">Aaj</span>
+        </div>
+        <input type="date" class="form-input" id="udhar-tx-date" style="color-scheme:dark; font-size:15px; font-weight:600; cursor:pointer;" onclick="try{this.showPicker()}catch(e){}" onchange="updateUdharDateHint('udhar-tx-date', 'udhar-tx-date-hint')">
+        <div class="date-quick-btns">
+          <button type="button" class="date-quick-btn active" id="btn-date-today" onclick="setUdharQuickDate('udhar-tx-date', 'udhar-tx-date-hint', 0, this)">Aaj (Today)</button>
+          <button type="button" class="date-quick-btn" id="btn-date-yesterday" onclick="setUdharQuickDate('udhar-tx-date', 'udhar-tx-date-hint', -1, this)">Kal (Yesterday)</button>
+          <button type="button" class="date-quick-btn" id="btn-date-2days" onclick="setUdharQuickDate('udhar-tx-date', 'udhar-tx-date-hint', -2, this)">2 Din Pehle</button>
+          <button type="button" class="date-quick-btn" id="btn-date-week" onclick="setUdharQuickDate('udhar-tx-date', 'udhar-tx-date-hint', -7, this)">1 Hafta Pehle</button>
+        </div>
       </div>
 
       <div class="form-group">
@@ -1497,6 +1523,57 @@ function doPost(e) {
       <div class="btn-row">
         <button class="btn-sec" onclick="closeAddUdharTxModal()">Cancel</button>
         <button class="btn-primary" id="btn-submit-udhar-tx" style="margin-top:0; background:#e63946;" onclick="submitAddUdharTx()">Save Entry</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Udhar Transaction Modal -->
+  <div class="modal-overlay" id="modal-edit-udhar-tx" style="display:none;">
+    <div class="modal">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 id="modal-edit-udhar-tx-title" style="font-size:16px; color:#fff; margin:0;">✏️ Edit Tareeq / Len-Den Entry</h3>
+        <button onclick="closeEditUdharTxModal()" style="background:transparent; border:none; color:var(--text-sec); font-size:20px; cursor:pointer;">✕</button>
+      </div>
+
+      <input type="hidden" id="edit-udhar-tx-id">
+
+      <!-- Type Toggle -->
+      <div class="udhar-type-toggle">
+        <button type="button" class="udhar-type-btn" id="btn-edit-toggle-gave" onclick="setEditUdharTxType('GAVE')">
+          🔴 Maine Diya<br><small>(Udhar Dena)</small>
+        </button>
+        <button type="button" class="udhar-type-btn" id="btn-edit-toggle-got" onclick="setEditUdharTxType('GOT')">
+          🟢 Mujhe Mila<br><small>(Wapas Aana)</small>
+        </button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Raqam / Amount (₹) *</label>
+        <input type="number" class="form-input" id="edit-udhar-tx-amount" placeholder="0" style="font-size:22px; font-weight:800; color:#fff;">
+      </div>
+
+      <div class="form-group">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+          <label class="form-label" style="margin-bottom:0;">📅 Tareeq (Date of Transaction)</label>
+          <span id="edit-udhar-tx-date-hint" style="font-size:11px; color:var(--secondary); font-weight:600;"></span>
+        </div>
+        <input type="date" class="form-input" id="edit-udhar-tx-date" style="color-scheme:dark; font-size:15px; font-weight:600; cursor:pointer;" onclick="try{this.showPicker()}catch(e){}" onchange="updateUdharDateHint('edit-udhar-tx-date', 'edit-udhar-tx-date-hint')">
+        <div class="date-quick-btns">
+          <button type="button" class="date-quick-btn" onclick="setUdharQuickDate('edit-udhar-tx-date', 'edit-udhar-tx-date-hint', 0, this)">Aaj (Today)</button>
+          <button type="button" class="date-quick-btn" onclick="setUdharQuickDate('edit-udhar-tx-date', 'edit-udhar-tx-date-hint', -1, this)">Kal (Yesterday)</button>
+          <button type="button" class="date-quick-btn" onclick="setUdharQuickDate('edit-udhar-tx-date', 'edit-udhar-tx-date-hint', -2, this)">2 Din Pehle</button>
+          <button type="button" class="date-quick-btn" onclick="setUdharQuickDate('edit-udhar-tx-date', 'edit-udhar-tx-date-hint', -7, this)">1 Hafta Pehle</button>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Maqsad / Note (Kis baat ke liye?)</label>
+        <input type="text" class="form-input" id="edit-udhar-tx-note" placeholder="e.g. GPay se bheje, Dukan ka saaman">
+      </div>
+
+      <div class="btn-row">
+        <button class="btn-sec" onclick="closeEditUdharTxModal()">Cancel</button>
+        <button class="btn-primary" id="btn-submit-edit-udhar-tx" style="margin-top:0;" onclick="submitEditUdharTx()">Save Changes</button>
       </div>
     </div>
   </div>
@@ -3261,7 +3338,7 @@ function doPost(e) {
             <span class="${isGave ? 'udhar-badge-gave' : 'udhar-badge-got'}">
               ${isGave ? '🔴 Maine Diya' : '🟢 Mujhe Mila'}
             </span>
-            <span style="font-size:11px; color:var(--text-sec);">${t.date}</span>
+            <span style="font-size:11px; color:var(--text-sec); font-weight:600;">${formatReadableDate(t.date)}</span>
           </div>
           <div style="font-size:12px; color:#fff; margin-top:4px; font-weight:600;">
             ${escapeHtml(t.note || (isGave ? 'Udhar Diya' : 'Wapas Mila'))}
@@ -3271,7 +3348,10 @@ function doPost(e) {
           <div style="font-size:15px; font-weight:800; color:${isGave ? '#ff6b6b' : '#2ec4b6'};">
             ${isGave ? '-' : '+'} ₹${Number(t.amount).toLocaleString('en-IN')}
           </div>
-          <button onclick="deleteUdharTx('${t.id}')" style="background:transparent; border:none; color:var(--error); font-size:10px; cursor:pointer; padding:2px; margin-top:2px;">🗑️ Delete</button>
+          <div style="display:flex; justify-content:flex-end; align-items:center; gap:6px; margin-top:4px;">
+            <button onclick="openEditUdharTxModal('${t.id}')" style="background:rgba(0, 210, 255, 0.12); border:1px solid var(--secondary); color:var(--secondary); border-radius:6px; font-size:10px; font-weight:700; cursor:pointer; padding:3px 7px;">✏️ Tareeq / Edit</button>
+            <button onclick="deleteUdharTx('${t.id}')" style="background:transparent; border:none; color:var(--error); font-size:11px; cursor:pointer; padding:2px;">🗑️</button>
+          </div>
         </div>
       </div>`;
     });
@@ -3285,8 +3365,23 @@ function doPost(e) {
     document.getElementById('new-udhar-note').value = '';
     document.getElementById('new-udhar-opening-amt').value = '0';
     document.getElementById('new-udhar-opening-type').value = 'NONE';
+    const dateInput = document.getElementById('new-udhar-opening-date');
+    if (dateInput) {
+      dateInput.value = new Date().toISOString().split('T')[0];
+      updateUdharDateHint('new-udhar-opening-date', 'new-udhar-opening-date-hint');
+    }
+    const dateGrp = document.getElementById('group-new-udhar-opening-date');
+    if (dateGrp) dateGrp.style.display = 'none';
     const modal = document.getElementById('modal-add-udhar-person');
     if (modal) modal.style.display = 'flex';
+  }
+
+  function toggleNewUdharOpeningDate() {
+    const type = document.getElementById('new-udhar-opening-type').value;
+    const dateGrp = document.getElementById('group-new-udhar-opening-date');
+    if (dateGrp) {
+      dateGrp.style.display = (type !== 'NONE') ? 'block' : 'none';
+    }
   }
 
   function closeAddUdharPersonModal() {
@@ -3321,12 +3416,14 @@ function doPost(e) {
     udharData.contacts.push(newPerson);
 
     if (openAmt > 0 && openType !== 'NONE') {
+      const openDateEl = document.getElementById('new-udhar-opening-date');
+      const openDate = (openDateEl && openDateEl.value) ? openDateEl.value : new Date().toISOString().split('T')[0];
       udharData.transactions.push({
         id: 'tx_' + Date.now(),
         contactId: newPersonId,
         type: openType,
         amount: openAmt,
-        date: new Date().toISOString().split('T')[0],
+        date: openDate,
         note: 'Pehle ka opening balance',
         createdAt: new Date().toISOString()
       });
@@ -3334,6 +3431,97 @@ function doPost(e) {
 
     saveUdharData();
     closeAddUdharPersonModal();
+    renderUdharDashboard();
+
+    if (settings && settings.autoSyncGoogleSheet && settings.sheetId) {
+      syncToGoogleSheet(true);
+    }
+  }
+
+  let currentEditTxModalType = 'GAVE';
+
+  function openEditUdharTxModal(txId) {
+    const tx = (udharData.transactions || []).find(t => t.id === txId);
+    if (!tx) return;
+
+    document.getElementById('edit-udhar-tx-id').value = tx.id;
+    document.getElementById('edit-udhar-tx-amount').value = tx.amount;
+    document.getElementById('edit-udhar-tx-date').value = tx.date || new Date().toISOString().split('T')[0];
+    document.getElementById('edit-udhar-tx-note').value = tx.note || '';
+
+    setEditUdharTxType(tx.type || 'GAVE');
+    updateUdharDateHint('edit-udhar-tx-date', 'edit-udhar-tx-date-hint');
+
+    const modal = document.getElementById('modal-edit-udhar-tx');
+    if (modal) {
+      // Highlight matching quick button if any
+      const today = new Date().toISOString().split('T')[0];
+      const yest = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      const twodays = new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0];
+      const qBtns = modal.querySelectorAll('.date-quick-btn');
+      qBtns.forEach((b, idx) => {
+        if ((idx === 0 && tx.date === today) || (idx === 1 && tx.date === yest) || (idx === 2 && tx.date === twodays)) {
+          b.classList.add('active');
+        } else {
+          b.classList.remove('active');
+        }
+      });
+      modal.style.display = 'flex';
+    }
+  }
+
+  function closeEditUdharTxModal() {
+    const modal = document.getElementById('modal-edit-udhar-tx');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function setEditUdharTxType(type) {
+    currentEditTxModalType = type;
+    const btnGave = document.getElementById('btn-edit-toggle-gave');
+    const btnGot = document.getElementById('btn-edit-toggle-got');
+    const submitBtn = document.getElementById('btn-submit-edit-udhar-tx');
+
+    if (type === 'GAVE') {
+      if (btnGave) btnGave.className = 'udhar-type-btn active-gave';
+      if (btnGot) btnGot.className = 'udhar-type-btn';
+      if (submitBtn) { submitBtn.style.background = '#e63946'; submitBtn.innerText = '🔴 Update Maine Diya'; }
+    } else {
+      if (btnGot) btnGot.className = 'udhar-type-btn active-got';
+      if (btnGave) btnGave.className = 'udhar-type-btn';
+      if (submitBtn) { submitBtn.style.background = '#2ec4b6'; submitBtn.innerText = '🟢 Update Mujhe Mila'; }
+    }
+  }
+
+  function submitEditUdharTx() {
+    const txId = document.getElementById('edit-udhar-tx-id').value;
+    const tx = (udharData.transactions || []).find(t => t.id === txId);
+    if (!tx) return;
+
+    const amountVal = parseFloat(document.getElementById('edit-udhar-tx-amount').value);
+    const dateVal = document.getElementById('edit-udhar-tx-date').value;
+    const noteVal = document.getElementById('edit-udhar-tx-note').value.trim();
+
+    if (isNaN(amountVal) || amountVal <= 0) {
+      alert('Kripya sahi raqam (amount) daalein.');
+      return;
+    }
+    if (!dateVal) {
+      alert('Kripya tareeq chunein.');
+      return;
+    }
+
+    tx.type = currentEditTxModalType;
+    tx.amount = amountVal;
+    tx.date = dateVal;
+    tx.note = noteVal;
+    tx.updatedAt = new Date().toISOString();
+
+    saveUdharData();
+    closeEditUdharTxModal();
+
+    if (currentLedgerPersonId) {
+      renderPersonLedger(currentLedgerPersonId);
+    }
     renderUdharDashboard();
 
     if (settings && settings.autoSyncGoogleSheet && settings.sheetId) {
@@ -3389,6 +3577,78 @@ function doPost(e) {
     openUdharScreen('list');
   }
 
+  // Helper: Format readable date for passbook
+  function formatReadableDate(dateStr) {
+    if (!dateStr) return '';
+    const today = new Date().toISOString().split('T')[0];
+    const yest = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const twodays = new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0];
+
+    const parts = dateStr.split('-');
+    let formatted = dateStr;
+    if (parts.length === 3) {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      formatted = `${parts[2]} ${months[parseInt(parts[1], 10) - 1]} ${parts[0]}`;
+    }
+
+    if (dateStr === today) return `📅 Aaj (${formatted})`;
+    if (dateStr === yest) return `📅 Kal (${formatted})`;
+    if (dateStr === twodays) return `📅 2 Din Pehle (${formatted})`;
+    return `📅 ${formatted}`;
+  }
+
+  // Helper: Quick date buttons logic
+  function setUdharQuickDate(inputId, hintId, dayOffset, btnEl) {
+    const d = new Date();
+    d.setDate(d.getDate() + dayOffset);
+    const dateStr = d.toISOString().split('T')[0];
+    const input = document.getElementById(inputId);
+    if (input) {
+      input.value = dateStr;
+      updateUdharDateHint(inputId, hintId);
+    }
+    if (btnEl && btnEl.parentElement) {
+      const btns = btnEl.parentElement.querySelectorAll('.date-quick-btn');
+      btns.forEach(b => b.classList.remove('active'));
+      btnEl.classList.add('active');
+    }
+  }
+
+  // Helper: Update readable hint under date picker
+  function updateUdharDateHint(inputId, hintId) {
+    const input = document.getElementById(inputId);
+    const hint = document.getElementById(hintId);
+    if (!input || !hint || !input.value) return;
+
+    const today = new Date().toISOString().split('T')[0];
+    const yest = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const twodays = new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0];
+
+    const val = input.value;
+    let label = val;
+    const parts = val.split('-');
+    if (parts.length === 3) {
+      const dObj = new Date(val + 'T12:00:00');
+      const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dObj.getDay()];
+      const monthName = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][dObj.getMonth()];
+      label = `${parts[2]} ${monthName} (${dayName})`;
+    }
+
+    if (val === today) {
+      hint.innerText = `Aaj • ${label}`;
+      hint.style.color = '#00D2FF';
+    } else if (val === yest) {
+      hint.innerText = `Kal • ${label}`;
+      hint.style.color = '#FFD600';
+    } else if (val === twodays) {
+      hint.innerText = `2 Din Pehle • ${label}`;
+      hint.style.color = '#FFA726';
+    } else {
+      hint.innerText = `Tareeq: ${label}`;
+      hint.style.color = '#a5d6a7';
+    }
+  }
+
   function openAddUdharTxModal(prefillType = 'GAVE', prefillPersonId = null) {
     currentTxModalType = prefillType;
     setUdharTxType(prefillType);
@@ -3402,11 +3662,20 @@ function doPost(e) {
     }
 
     document.getElementById('udhar-tx-amount').value = '';
-    document.getElementById('udhar-tx-date').value = new Date().toISOString().split('T')[0];
+    const todayStr = new Date().toISOString().split('T')[0];
+    document.getElementById('udhar-tx-date').value = todayStr;
     document.getElementById('udhar-tx-note').value = '';
 
     const modal = document.getElementById('modal-add-udhar-tx');
-    if (modal) modal.style.display = 'flex';
+    if (modal) {
+      const qBtns = modal.querySelectorAll('.date-quick-btn');
+      qBtns.forEach((b, idx) => {
+        if (idx === 0) b.classList.add('active');
+        else b.classList.remove('active');
+      });
+      updateUdharDateHint('udhar-tx-date', 'udhar-tx-date-hint');
+      modal.style.display = 'flex';
+    }
   }
 
   function closeAddUdharTxModal() {
