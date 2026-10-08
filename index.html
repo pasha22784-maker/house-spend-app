@@ -4248,6 +4248,7 @@ function doPost(e) {
     saveRentData();
     closeRentPaymentModal();
     renderRentRooms();
+    renderRentAnnual();
 
     // Auto-sync if configured
     if (settings && settings.autoSyncGoogleSheet && settings.sheetId) {
@@ -4349,6 +4350,7 @@ function doPost(e) {
     saveRentData();
     closeAddMaintenanceModal();
     renderRentMaintenance();
+    renderRentAnnual();
 
     if (settings && settings.autoSyncGoogleSheet && settings.sheetId) {
       syncToGoogleSheet(true);
@@ -4360,6 +4362,7 @@ function doPost(e) {
     rentData.maintenance = (rentData.maintenance || []).filter(m => m.id !== id);
     saveRentData();
     renderRentMaintenance();
+    renderRentAnnual();
   }
 
   function renderRentAnnual() {
@@ -4369,26 +4372,8 @@ function doPost(e) {
     if (yearSelect) yearSelect.value = selYear;
 
     const lastYear = (parseInt(selYear, 10) - 1).toString();
-    
-          // 3. Udhar Khata (लेन-देन) Tab
-      if (payload.udharData && payload.udharData.contacts && payload.udharData.contacts.length > 0) {
-        var uSheet = ss.getSheetByName("Udhar_Khata") || ss.insertSheet("Udhar_Khata");
-        uSheet.clear();
-        uSheet.getRange("A1:G1").setValues([["Shakhs Name", "Phone", "Note", "Kul Diya (₹)", "Kul Mila (₹)", "Net Balance (₹)", "Status"]])
-              .setBackground("#7209B7").setFontColor("#FFFFFF").setFontWeight("bold");
-        var uRows = [];
-        var uContacts = payload.udharData.contacts || [];
-        for (var u = 0; u < uContacts.length; u++) {
-          var uc = uContacts[u];
-          uRows.push([uc.name, uc.phone, uc.note, uc.totalGave, uc.totalGot, uc.balance, uc.status]);
-        }
-        if (uRows.length > 0) {
-          uSheet.getRange(2, 1, uRows.length, 7).setValues(uRows);
-        }
-        uSheet.autoResizeColumns(1, 7);
-      }
 
-      // Carry forward calculation:
+    // Carry forward calculation:
     let lastYearBal = 0;
     if (rentData.yearlyCarryForwards && rentData.yearlyCarryForwards[lastYear] !== undefined) {
       lastYearBal = Number(rentData.yearlyCarryForwards[lastYear]);
@@ -4463,6 +4448,15 @@ function doPost(e) {
     // Store carry forward for next year
     if (!rentData.yearlyCarryForwards) rentData.yearlyCarryForwards = {};
     rentData.yearlyCarryForwards[selYear] = closingBal;
+    rentData.annualSummary = {
+      lastYearBal: lastYearBal,
+      totalDue: totalYearDue,
+      totalColl: totalYearColl,
+      totalBaki: totalYearBaki,
+      totalMaint: yearMaintSpent,
+      netProfit: yearNetProfit,
+      closingBalance: closingBal
+    };
     saveRentData();
 
     // Update UI numbers
