@@ -4132,7 +4132,18 @@ function doPost(e) {
 
         // Check months up to 1 month ago (not counting future or current month for overdue)
         if (monthsDiff >= 1) {
+          // Check if this month is in doNotRemindMonths for this room
+          const rReminder = (rentData.reminders && rentData.reminders[r.id]);
+          const dnrMonths = (rReminder && rReminder.doNotRemindMonths) || [];
+          if (dnrMonths.includes(mKey)) {
+            return; // Skipped permanently as per user request
+          }
+
           const p = (rentData.payments && rentData.payments[mKey] && rentData.payments[mKey][r.id]);
+          if (p && p.status === 'Waived') {
+            return; // Waived / Maaf rent does not trigger overdue
+          }
+
           const paid = p ? Number(p.paidAmount || 0) : 0;
           const baki = due - paid;
           if (baki > 0) {
@@ -4286,12 +4297,17 @@ function doPost(e) {
           <div style="font-size:11px; color:var(--text-sec); margin-bottom:6px; font-weight:600;">
             ❓ Kya is room ka kiraya mil gaya? (Rent Received?)
           </div>
-          <div style="display:flex; gap:8px;">
-            <button class="btn-primary" style="flex:1; margin-top:0; padding:9px 6px; font-size:11px; background:linear-gradient(135deg, #00C853 0%, #009624 100%); font-weight:700;" onclick="showOverdueReceiveForm('${r.id}')">
-              💵 Rent Received? (हाँ, मिला)
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
+            <button class="btn-primary" style="margin-top:0; padding:8px 4px; font-size:11px; background:linear-gradient(135deg, #00C853 0%, #009624 100%); font-weight:700;" onclick="showOverdueReceiveForm('${r.id}')">
+              💵 Rent Received?
             </button>
-            <button class="btn-sec" style="flex:1; padding:9px 6px; font-size:11px; color:#ffb74d; border-color:#ffb74d; font-weight:700;" onclick="showOverdueSnoozeForm('${r.id}')">
-              ⏰ Remind Later (Calendar)
+            <button class="btn-sec" style="padding:8px 4px; font-size:11px; color:#ffb74d; border-color:#ffb74d; font-weight:700;" onclick="showOverdueSnoozeForm('${r.id}')">
+              ⏰ Remind Later
+            </button>
+          </div>
+          <div style="margin-top:6px;">
+            <button class="btn-sec" style="width:100%; padding:7px 4px; font-size:11px; color:#adb5bd; border-color:rgba(255,255,255,0.2); font-weight:600;" onclick="showOverdueDoNotRemindForm('${r.id}')">
+              🚫 Do Not Remind (माफ़ / बंद करें)
             </button>
           </div>
         </div>
@@ -4346,6 +4362,40 @@ function doPost(e) {
             <button class="btn-primary" style="flex:1; margin-top:0; padding:7px; font-size:11px; background:#ff9800; color:#000; font-weight:700;" onclick="submitSaveOverdueSnooze('${r.id}')">⏰ Set Reminder</button>
           </div>
         </div>
+
+        <!-- 3. Do Not Remind / Waive Rent Form (Expandable) -->
+        <div id="overdue-donotremind-box-${r.id}" style="display:none; margin-top:10px; padding:11px; background:rgba(230,57,70,0.08); border:1px solid rgba(230,57,70,0.35); border-radius:10px;">
+          <h4 style="font-size:12px; color:#ff6b6b; margin-bottom:6px;">🚫 Do Not Remind (Reminder Hataayein / Maaf Karein)</h4>
+          <p style="font-size:10px; color:var(--text-sec); margin-bottom:8px; line-height:1.4;">
+            In purane mahino ka reminder dobara kabhi nahi aayega. Agar rent maaf kar diya hai to hisaab me bhi update ho jayega.
+          </p>
+
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label" style="font-size:10px;">Konsa Mahina Maaf / Band Karna Hai?</label>
+            <select class="form-select" id="overdue-dnr-month-${r.id}" style="padding:7px; font-size:12px;">
+              ${item.unpaidMonths.length > 1 ? `<option value="ALL">Sabhi Purane Mahine (${item.unpaidMonths.length} Mahine, ₹${item.totalOverdue})</option>` : ''}
+              ${item.unpaidMonths.map(m => `<option value="${m.monthKey}">${m.monthName} (Baki: ₹${m.baki})</option>`).join('')}
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label" style="font-size:10px;">Kareeb-Kareeb Kya Wajah Hai? (Select Action)</label>
+            <select class="form-select" id="overdue-dnr-action-${r.id}" style="padding:7px; font-size:12px;">
+              <option value="WAIVE">❤️ Rent Maaf Kiya (Mark as Waived in Records)</option>
+              <option value="SILENCE">🔕 Sirf Reminder Band Karein (Baki rahe, par reminder na aaye)</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label" style="font-size:10px;">Wajah / Note (Optional)</label>
+            <input type="text" class="form-input" id="overdue-dnr-note-${r.id}" placeholder="e.g. Zarooratmand tha isliye maaf kiya, aapas me faisla hua" style="padding:7px; font-size:11px;">
+          </div>
+
+          <div style="display:flex; gap:6px;">
+            <button class="btn-sec" style="flex:1; padding:7px; font-size:11px;" onclick="hideOverdueDoNotRemindForm('${r.id}')">Cancel</button>
+            <button class="btn-primary" style="flex:1; margin-top:0; padding:7px; font-size:11px; background:#e63946; color:#fff; font-weight:700;" onclick="submitDoNotRemind('${r.id}')">🚫 Save & Do Not Remind</button>
+          </div>
+        </div>
       </div>`;
     });
 
@@ -4363,7 +4413,91 @@ function doPost(e) {
     closeOverdueRentModal();
   }
 
+    function showOverdueDoNotRemindForm(roomId) {
+    hideOverdueReceiveForm(roomId);
+    hideOverdueSnoozeForm(roomId);
+    const box = document.getElementById(`overdue-donotremind-box-${roomId}`);
+    if (box) box.style.display = 'block';
+  }
+
+  function hideOverdueDoNotRemindForm(roomId) {
+    const box = document.getElementById(`overdue-donotremind-box-${roomId}`);
+    if (box) box.style.display = 'none';
+  }
+
+  function submitDoNotRemind(roomId) {
+    const sel = document.getElementById(`overdue-dnr-month-${roomId}`);
+    const actionSel = document.getElementById(`overdue-dnr-action-${roomId}`);
+    const noteInput = document.getElementById(`overdue-dnr-note-${roomId}`);
+
+    const selectedMonth = sel ? sel.value : 'ALL';
+    const actionType = actionSel ? actionSel.value : 'WAIVE';
+    const noteVal = noteInput ? noteInput.value.trim() : '';
+
+    const roomItem = getOverdueRentRooms().find(o => o.room.id === roomId);
+    if (!roomItem) return;
+
+    const monthsToIgnore = selectedMonth === 'ALL'
+      ? roomItem.unpaidMonths.map(m => m.monthKey)
+      : [selectedMonth];
+
+    if (!rentData.reminders) rentData.reminders = {};
+    if (!rentData.reminders[roomId]) rentData.reminders[roomId] = {};
+    if (!rentData.reminders[roomId].doNotRemindMonths) rentData.reminders[roomId].doNotRemindMonths = [];
+
+    monthsToIgnore.forEach(mKey => {
+      if (!rentData.reminders[roomId].doNotRemindMonths.includes(mKey)) {
+        rentData.reminders[roomId].doNotRemindMonths.push(mKey);
+      }
+    });
+    rentData.reminders[roomId].doNotRemindNote = noteVal || (actionType === 'WAIVE' ? 'Rent Maaf Kiya (Waived)' : 'Reminder Band Kiya');
+
+    // If actionType is WAIVE, mark those months in payments record as 'Waived'
+    if (actionType === 'WAIVE') {
+      if (!rentData.payments) rentData.payments = {};
+      const room = rentData.rooms.find(r => r.id === roomId);
+      const roomDue = room ? Number(room.rentAmount || 0) : 0;
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      monthsToIgnore.forEach(mKey => {
+        if (!rentData.payments[mKey]) rentData.payments[mKey] = {};
+        const prevPaid = Number((rentData.payments[mKey][roomId] && rentData.payments[mKey][roomId].paidAmount) || 0);
+        rentData.payments[mKey][roomId] = {
+          paidAmount: prevPaid,
+          waivedAmount: Math.max(0, roomDue - prevPaid),
+          status: 'Waived',
+          remarks: noteVal ? `Rent Maaf: ${noteVal}` : 'Rent Maaf Kiya (Waived)',
+          date: todayStr
+        };
+      });
+    }
+
+    saveRentData();
+    renderRentRooms();
+    renderRentAnnual();
+
+    if (settings && settings.autoSyncGoogleSheet && settings.sheetId) {
+      syncToGoogleSheet(true);
+    }
+
+    alert('🚫 In purane mahino ka reminder hamesha ke liye band kar diya gaya hai. Aage se iska koi notification nahi aayega.');
+    openOverdueRentModal(false);
+  }
+
+  function resetOverdueDoNotRemind(roomId) {
+    if (!confirm('Kya aap is room ke purane mahino ke reminders dobara chalu karna chahte hain?')) return;
+    if (rentData.reminders && rentData.reminders[roomId]) {
+      delete rentData.reminders[roomId].doNotRemindMonths;
+      delete rentData.reminders[roomId].doNotRemindNote;
+      saveRentData();
+      renderRentRooms();
+      renderRentAnnual();
+      openOverdueRentModal(true);
+    }
+  }
+
   function showOverdueReceiveForm(roomId) {
+    hideOverdueDoNotRemindForm(roomId);
     hideOverdueSnoozeForm(roomId);
     const box = document.getElementById(`overdue-receive-box-${roomId}`);
     if (box) box.style.display = 'block';
@@ -4376,6 +4510,7 @@ function doPost(e) {
 
   function showOverdueSnoozeForm(roomId) {
     hideOverdueReceiveForm(roomId);
+    hideOverdueDoNotRemindForm(roomId);
     const box = document.getElementById(`overdue-snooze-box-${roomId}`);
     if (box) box.style.display = 'block';
   }
@@ -4628,7 +4763,9 @@ function doPost(e) {
         const isPartial = paid > 0 && paid < due;
 
         let badgeHtml = '';
-        if (isPaid) {
+        if (p.status === 'Waived') {
+          badgeHtml = `<span class="badge" style="background:rgba(255,214,0,0.18); color:#ffd600; border:1px solid #ffd600;">🟡 Maaf (Waived)</span>`;
+        } else if (isPaid) {
           badgeHtml = `<span class="badge badge-paid">🟢 Paid ₹${paid.toLocaleString('en-IN')}</span>`;
         } else if (isPartial) {
           badgeHtml = `<span class="badge badge-partial">🟡 Partial ₹${paid.toLocaleString('en-IN')} (Baki ₹${bal.toLocaleString('en-IN')})</span>`;
@@ -4673,6 +4810,11 @@ function doPost(e) {
                   <button onclick="openOverdueRentModal(true)" style="background:var(--error); border:none; color:#fff; border-radius:4px; padding:3px 7px; font-size:10px; font-weight:700; cursor:pointer;">Action 🔔</button>
                 </div>`;
               }
+            } else if (reminder && reminder.doNotRemindMonths && reminder.doNotRemindMonths.length > 0) {
+              return `<div style="margin-top:7px; padding:5px 9px; background:rgba(255, 255, 255, 0.05); border:1px solid var(--border); border-radius:8px; font-size:10px; color:var(--text-sec); display:flex; justify-content:space-between; align-items:center;">
+                <span>🚫 <strong>Reminder Band / Maaf:</strong> ${reminder.doNotRemindMonths.length} Mahine ${reminder.doNotRemindNote ? '(' + escapeHtml(reminder.doNotRemindNote) + ')' : ''}</span>
+                <button onclick="resetOverdueDoNotRemind('${r.id}')" style="background:transparent; border:none; color:var(--secondary); font-size:10px; font-weight:700; cursor:pointer;">Reset 🔄</button>
+              </div>`;
             }
             return '';
           })()}
