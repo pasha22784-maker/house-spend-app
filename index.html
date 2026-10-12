@@ -147,6 +147,7 @@
     .date-quick-btn { background: var(--card); border: 1px solid var(--border); border-radius: 8px; color: var(--text-sec); font-size: 11px; padding: 6px 10px; cursor: pointer; white-space: nowrap; font-weight: 600; transition: 0.15s; }
     .date-quick-btn:active { transform: scale(0.95); }
     .date-quick-btn.active { background: var(--secondary); border-color: var(--secondary); color: #000; font-weight: 700; }
+    .overdue-room-card { background: var(--surface); border: 1px solid rgba(230,57,70,0.4); border-left: 4px solid var(--error); border-radius: 12px; padding: 12px; margin-bottom: 12px; }
 
 
     /* Rent Specific Styles */
@@ -580,19 +581,37 @@
     </div>
 
     <!-- Quick Action / Navigation Buttons for Rent -->
-    <div class="actions-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom:12px;">
+    <div class="actions-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom:12px;">
       <button class="action-btn" onclick="openRentScreen('maintenance')">
         <span>🛠️</span>
         <p>Maintenance</p>
       </button>
       <button class="action-btn" onclick="openRentScreen('annual')">
         <span>📈</span>
-        <p>Saal Ka Balance</p>
+        <p>Saal Balance</p>
       </button>
       <button class="action-btn" onclick="openRentStatementModal()">
         <span>📄</span>
-        <p>Report Print</p>
+        <p>Report</p>
       </button>
+      <button class="action-btn" id="btn-rent-overdue-alert" onclick="openOverdueRentModal(true)" style="position:relative;">
+        <span style="position:relative; display:inline-block;">🔔<span id="rent-overdue-count-badge" style="display:none; position:absolute; top:-6px; right:-12px; background:var(--error); color:#fff; font-size:10px; font-weight:800; border-radius:10px; padding:1px 5px; min-width:16px; text-align:center;">0</span></span>
+        <p>Reminders</p>
+      </button>
+    </div>
+
+    <!-- Alert Banner when 2+ Months Overdue exist -->
+    <div id="rent-overdue-banner" style="display:none; margin-bottom:12px; background:linear-gradient(135deg, rgba(230,57,70,0.2) 0%, rgba(181,23,158,0.2) 100%); border:1px solid #e63946; border-radius:12px; padding:10px 12px; cursor:pointer;" onclick="openOverdueRentModal(true)">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:20px;">⚠️</span>
+          <div>
+            <div style="font-size:12px; font-weight:700; color:#fff;" id="rent-overdue-banner-text">Kiraya Baki Alert!</div>
+            <div style="font-size:10px; color:#ffb4b4; margin-top:2px;">Reminder dekhne aur action lene ke liye yahan dabayein ➔</div>
+          </div>
+        </div>
+        <span style="background:#e63946; color:#fff; font-size:10px; font-weight:700; padding:4px 8px; border-radius:6px;">Dekhein 🔔</span>
+      </div>
     </div>
 
     <!-- Filter Pills: All / Pending / Paid -->
@@ -1223,8 +1242,33 @@ function doPost(e) {
     </div>
   </div>
 
+  <!-- Overdue Rent Reminder Modal -->
+  <div class="modal-overlay" id="modal-overdue-rent-reminder" style="display:none;">
+    <div class="modal" style="max-width:440px; max-height:88vh; overflow-y:auto;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <div>
+          <h3 style="font-size:16px; color:#ff6b6b; margin:0; display:flex; align-items:center; gap:6px;">
+            <span>🔔</span> Overdue Rent Reminder
+          </h3>
+          <p style="font-size:11px; color:var(--text-sec); margin-top:2px;">
+            2 mahine ya usse zyada se baqi kiraye ki suchna
+          </p>
+        </div>
+        <button onclick="closeOverdueRentModal()" style="background:transparent; border:none; color:var(--text-sec); font-size:20px; cursor:pointer; padding:0 4px;">✕</button>
+      </div>
+
+      <div id="overdue-rent-list-container">
+        <!-- Rendered overdue rooms -->
+      </div>
+
+      <div class="btn-row" style="margin-top:12px;">
+        <button class="btn-sec" onclick="dismissOverdueRentForSession()">Aaj Ke Liye Band Karein (Close)</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Rent Payment Modal -->
-  <div class="modal-overlay" id="modal-rent-payment" style="display:none;">
+  <div class="modal-overlay" id="modal-rent-payment"  style="display:none;">
     <div class="modal">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
         <h3 id="rent-pay-modal-title" style="font-size:16px; color:#fff;">💵 Rent Collection Entry</h3>
@@ -3255,6 +3299,7 @@ function doPost(e) {
     });
 
     container.innerHTML = html;
+    updateOverdueRentBadge();
   }
 
   function openPersonLedger(personId) {
@@ -3985,6 +4030,7 @@ function doPost(e) {
       if (pillRent) pillRent.classList.add('active');
       if (tabBarRent) tabBarRent.style.display = 'flex';
       openRentScreen(activeRentScreen || 'rooms');
+      setTimeout(() => { checkOverdueRentAlert(false); }, 500);
     } else if (mode === 'udhar') {
       if (pillUdhar) pillUdhar.classList.add('active');
       if (tabBarUdhar) tabBarUdhar.style.display = 'flex';
@@ -4030,6 +4076,457 @@ function doPost(e) {
     else if (activeRentScreen === 'annual') renderRentAnnual();
     else if (activeRentScreen === 'settings') renderRentSettings();
   }
+
+    // ==================== OVERDUE RENT 2+ MONTHS REMINDER SYSTEM ====================
+
+  function isTenantActive(r) {
+    if (!r || !r.tenantName) return false;
+    const tn = r.tenantName.trim().toLowerCase();
+    return tn !== '' && tn !== 'khali' && tn !== 'vacant' && !tn.includes('khali') && !tn.includes('vacant');
+  }
+
+  function formatMonthName(mKey) {
+    if (!mKey || mKey.length < 7) return mKey;
+    const [y, m] = mKey.split('-').map(Number);
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    return `${monthNames[m - 1]} ${y}`;
+  }
+
+  function getOverdueRentRooms() {
+    if (!rentData || !rentData.rooms) return [];
+
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const curRefMonth = currentMonth || todayStr.slice(0, 7);
+    const [curY, curM] = curRefMonth.split('-').map(Number);
+
+    // Collect all candidate months that have been recorded or are part of this year up to curRefMonth
+    const candidateMonthsSet = new Set();
+    if (rentData.payments) {
+      Object.keys(rentData.payments).forEach(m => candidateMonthsSet.add(m));
+    }
+    // Also consider previous months of current year
+    for (let m = 1; m <= curM; m++) {
+      candidateMonthsSet.add(`${curY}-${String(m).padStart(2, '0')}`);
+    }
+    // If early in the year, check late months of previous year
+    if (curM <= 2) {
+      candidateMonthsSet.add(`${curY - 1}-11`);
+      candidateMonthsSet.add(`${curY - 1}-12`);
+    }
+
+    const sortedMonths = Array.from(candidateMonthsSet).sort();
+    const overdueList = [];
+
+    rentData.rooms.forEach(r => {
+      if (!isTenantActive(r)) return;
+      const due = Number(r.rentAmount || 0);
+      if (due <= 0) return;
+
+      const unpaidMonths = [];
+      let hasTwoPlusMonthsOld = false;
+
+      sortedMonths.forEach(mKey => {
+        const [mY, mM] = mKey.split('-').map(Number);
+        const monthsDiff = (curY - mY) * 12 + (curM - mM);
+
+        // Check months up to 1 month ago (not counting future or current month for overdue)
+        if (monthsDiff >= 1) {
+          const p = (rentData.payments && rentData.payments[mKey] && rentData.payments[mKey][r.id]);
+          const paid = p ? Number(p.paidAmount || 0) : 0;
+          const baki = due - paid;
+          if (baki > 0) {
+            if (monthsDiff >= 2) {
+              hasTwoPlusMonthsOld = true;
+            }
+            unpaidMonths.push({
+              monthKey: mKey,
+              monthName: formatMonthName(mKey),
+              due: due,
+              paid: paid,
+              baki: baki,
+              monthsAgo: monthsDiff,
+              status: p ? p.status || (paid > 0 ? 'Partial' : 'Unpaid') : 'Unpaid'
+            });
+          }
+        }
+      });
+
+      // Condition: Rent is missing of a month for MORE THAN TWO MONTHS (monthsDiff >= 2),
+      // OR total missing unpaid months is 2 or more!
+      if (hasTwoPlusMonthsOld || unpaidMonths.length >= 2) {
+        const totalOverdue = unpaidMonths.reduce((sum, item) => sum + item.baki, 0);
+        const reminder = (rentData.reminders && rentData.reminders[r.id]) || null;
+        const isSnoozed = !!(reminder && reminder.snoozedUntil && reminder.snoozedUntil > todayStr);
+
+        overdueList.push({
+          room: r,
+          unpaidMonths: unpaidMonths,
+          totalOverdue: totalOverdue,
+          isSnoozed: isSnoozed,
+          reminder: reminder
+        });
+      }
+    });
+
+    return overdueList;
+  }
+
+  function updateOverdueRentBadge() {
+    const list = getOverdueRentRooms();
+    const activeUnSnoozed = list.filter(o => !o.isSnoozed);
+    const badge = document.getElementById('rent-overdue-count-badge');
+    const banner = document.getElementById('rent-overdue-banner');
+    const bannerText = document.getElementById('rent-overdue-banner-text');
+
+    if (badge) {
+      if (activeUnSnoozed.length > 0) {
+        badge.innerText = activeUnSnoozed.length;
+        badge.style.display = 'inline-block';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    if (banner) {
+      if (list.length > 0) {
+        banner.style.display = 'block';
+        if (bannerText) {
+          bannerText.innerText = `${list.length} Room(s) ka kiraya 2 mahine se zyada baqi hai!`;
+        }
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+  }
+
+  function checkOverdueRentAlert(isManual = false) {
+    updateOverdueRentBadge();
+    const list = getOverdueRentRooms();
+    const activeUnSnoozed = list.filter(o => !o.isSnoozed);
+
+    if (isManual) {
+      openOverdueRentModal(true);
+      return;
+    }
+
+    // Auto popup: only if not already dismissed in this session and there are un-snoozed overdue rooms
+    const dismissed = sessionStorage.getItem('rent_overdue_dismissed_session') === 'true';
+    if (!dismissed && activeUnSnoozed.length > 0) {
+      openOverdueRentModal(false);
+    }
+  }
+
+  function openOverdueRentModal(forceOpen = false) {
+    const modal = document.getElementById('modal-overdue-rent-reminder');
+    const container = document.getElementById('overdue-rent-list-container');
+    if (!modal || !container) return;
+
+    const list = getOverdueRentRooms();
+
+    if (list.length === 0) {
+      if (forceOpen) {
+        container.innerHTML = `
+          <div style="text-align:center; padding:30px 10px; color:var(--text-sec);">
+            <p style="font-size:36px; margin-bottom:8px;">🎉</p>
+            <h4 style="color:#fff; font-size:15px; margin-bottom:4px;">Sabhi Kiraye Up-To-Date Hain!</h4>
+            <p style="font-size:12px;">Kisi bhi kamre ka 2 mahine se zyada ka kiraya baqi nahi hai.</p>
+          </div>`;
+        modal.style.display = 'flex';
+      }
+      return;
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const defaultSnooze = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+
+    let html = '';
+    list.forEach(item => {
+      const r = item.room;
+      html += `
+      <div class="overdue-room-card" id="overdue-card-${r.id}">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+          <div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <strong style="font-size:14px; color:#fff;">${escapeHtml(r.name)} (${escapeHtml(r.floor)})</strong>
+              <span class="rent-meter-badge">⚡ ${escapeHtml(r.meterNo || 'No Meter')}</span>
+            </div>
+            <div style="font-size:12px; color:var(--secondary); margin-top:2px; font-weight:600;">
+              👤 ${escapeHtml(r.tenantName)} ${r.phone ? '• 📞 ' + escapeHtml(r.phone) : ''}
+            </div>
+          </div>
+          <div style="text-align:right;">
+            <span class="badge" style="background:rgba(230,57,70,0.2); color:#ff6b6b; border:1px solid #e63946; font-size:10px; font-weight:700;">
+              ⚠️ ${item.unpaidMonths.length} Mahine Baqi
+            </span>
+            <div style="font-size:15px; font-weight:800; color:#ff6b6b; margin-top:3px;">
+              ₹${item.totalOverdue.toLocaleString('en-IN')}
+            </div>
+          </div>
+        </div>
+
+        <!-- Missing Months Badges -->
+        <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:5px;">
+          ${item.unpaidMonths.map(m => `
+            <span style="font-size:10px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,107,107,0.4); color:#ffd166; padding:2px 7px; border-radius:6px;">
+              📅 ${m.monthName}: <strong>₹${m.baki.toLocaleString('en-IN')}</strong> (${m.monthsAgo} mahine pehle)
+            </span>
+          `).join('')}
+        </div>
+
+        ${item.isSnoozed ? `
+          <div style="margin-top:8px; padding:6px 9px; background:rgba(0, 210, 255, 0.1); border:1px solid var(--secondary); border-radius:8px; font-size:11px; color:#fff; display:flex; justify-content:space-between; align-items:center;">
+            <span>⏰ <strong>Reminder Set:</strong> ${formatReadableDate(item.reminder.snoozedUntil)} ${item.reminder.note ? '(' + escapeHtml(item.reminder.note) + ')' : ''}</span>
+            <button onclick="removeOverdueSnooze('${r.id}')" style="background:transparent; border:none; color:var(--error); font-size:10px; cursor:pointer;">Hataayein ✕</button>
+          </div>
+        ` : ''}
+
+        <!-- Two Core Action Choices Requested by User -->
+        <div style="margin-top:10px; padding-top:8px; border-top:1px dashed var(--border);">
+          <div style="font-size:11px; color:var(--text-sec); margin-bottom:6px; font-weight:600;">
+            ❓ Kya is room ka kiraya mil gaya? (Rent Received?)
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="btn-primary" style="flex:1; margin-top:0; padding:9px 6px; font-size:11px; background:linear-gradient(135deg, #00C853 0%, #009624 100%); font-weight:700;" onclick="showOverdueReceiveForm('${r.id}')">
+              💵 Rent Received? (हाँ, मिला)
+            </button>
+            <button class="btn-sec" style="flex:1; padding:9px 6px; font-size:11px; color:#ffb74d; border-color:#ffb74d; font-weight:700;" onclick="showOverdueSnoozeForm('${r.id}')">
+              ⏰ Remind Later (Calendar)
+            </button>
+          </div>
+        </div>
+
+        <!-- 1. Rent Received Form (Expandable) -->
+        <div id="overdue-receive-box-${r.id}" style="display:none; margin-top:10px; padding:11px; background:rgba(0,200,83,0.08); border:1px solid rgba(0,200,83,0.35); border-radius:10px;">
+          <h4 style="font-size:12px; color:var(--success); margin-bottom:8px;">💵 Rent Jama Karein (Mark as Received)</h4>
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label" style="font-size:10px;">Konsa Mahina Jama Karna Hai?</label>
+            <select class="form-select" id="overdue-pay-month-${r.id}" style="padding:7px; font-size:12px;" onchange="onOverdueMonthSelectChange('${r.id}')">
+              ${item.unpaidMonths.length > 1 ? `<option value="ALL">Sabhi Mahine Ka Ek Saath (Total: ₹${item.totalOverdue})</option>` : ''}
+              ${item.unpaidMonths.map(m => `<option value="${m.monthKey}" data-due="${m.baki}">${m.monthName} (Baki: ₹${m.baki})</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label" style="font-size:10px;">Milne Wali Raqam / Amount (₹) *</label>
+            <input type="number" class="form-input" id="overdue-pay-amount-${r.id}" value="${item.unpaidMonths.length > 1 ? item.totalOverdue : item.unpaidMonths[0].baki}" style="padding:7px; font-size:15px; font-weight:700; color:#00e676;">
+          </div>
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label" style="font-size:10px;">Kis Tareeq Ko Mila? (Payment Date)</label>
+            <input type="date" class="form-input" id="overdue-pay-date-${r.id}" value="${todayStr}" style="color-scheme:dark; padding:7px; font-size:12px; cursor:pointer;" onclick="try{this.showPicker()}catch(e){}">
+          </div>
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label" style="font-size:10px;">Payment Mode / Remarks</label>
+            <input type="text" class="form-input" id="overdue-pay-remarks-${r.id}" placeholder="e.g. GPay / Cash mila" style="padding:7px; font-size:11px;">
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button class="btn-sec" style="flex:1; padding:7px; font-size:11px;" onclick="hideOverdueReceiveForm('${r.id}')">Cancel</button>
+            <button class="btn-primary" style="flex:1; margin-top:0; padding:7px; font-size:11px; background:var(--success);" onclick="submitReceiveOverdueRent('${r.id}')">✅ Save Payment</button>
+          </div>
+        </div>
+
+        <!-- 2. Snooze / Remind Later Form (Expandable) -->
+        <div id="overdue-snooze-box-${r.id}" style="display:none; margin-top:10px; padding:11px; background:rgba(255,183,77,0.08); border:1px solid rgba(255,183,77,0.35); border-radius:10px;">
+          <h4 style="font-size:12px; color:#ffb74d; margin-bottom:8px;">⏰ Calendar Se Reminder Tareeq Chunein</h4>
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label" style="font-size:10px;">Kab Dobara Yaad Dilana Hai? (Choose Date By Calendar)</label>
+            <input type="date" class="form-input" id="overdue-snooze-date-${r.id}" value="${defaultSnooze}" style="color-scheme:dark; padding:8px; font-size:14px; font-weight:700; cursor:pointer;" onclick="try{this.showPicker()}catch(e){}">
+            <div class="date-quick-btns" style="margin-top:6px;">
+              <button type="button" class="date-quick-btn" onclick="setOverdueSnoozeQuickDate('${r.id}', 3, this)">+3 Din</button>
+              <button type="button" class="date-quick-btn active" onclick="setOverdueSnoozeQuickDate('${r.id}', 7, this)">+1 Hafta</button>
+              <button type="button" class="date-quick-btn" onclick="setOverdueSnoozeQuickDate('${r.id}', 15, this)">+15 Din</button>
+              <button type="button" class="date-quick-btn" onclick="setOverdueSnoozeNextMonthFirst('${r.id}', this)">Agle Mahine 1st</button>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label" style="font-size:10px;">Wajah / Note (Optional)</label>
+            <input type="text" class="form-input" id="overdue-snooze-note-${r.id}" placeholder="e.g. Kirayedaar ne bola agle hafte salary aayegi" style="padding:7px; font-size:11px;">
+          </div>
+          <div style="display:flex; gap:6px;">
+            <button class="btn-sec" style="flex:1; padding:7px; font-size:11px;" onclick="hideOverdueSnoozeForm('${r.id}')">Cancel</button>
+            <button class="btn-primary" style="flex:1; margin-top:0; padding:7px; font-size:11px; background:#ff9800; color:#000; font-weight:700;" onclick="submitSaveOverdueSnooze('${r.id}')">⏰ Set Reminder</button>
+          </div>
+        </div>
+      </div>`;
+    });
+
+    container.innerHTML = html;
+    modal.style.display = 'flex';
+  }
+
+  function closeOverdueRentModal() {
+    const modal = document.getElementById('modal-overdue-rent-reminder');
+    if (modal) modal.style.display = 'none';
+  }
+
+  function dismissOverdueRentForSession() {
+    sessionStorage.setItem('rent_overdue_dismissed_session', 'true');
+    closeOverdueRentModal();
+  }
+
+  function showOverdueReceiveForm(roomId) {
+    hideOverdueSnoozeForm(roomId);
+    const box = document.getElementById(`overdue-receive-box-${roomId}`);
+    if (box) box.style.display = 'block';
+  }
+
+  function hideOverdueReceiveForm(roomId) {
+    const box = document.getElementById(`overdue-receive-box-${roomId}`);
+    if (box) box.style.display = 'none';
+  }
+
+  function showOverdueSnoozeForm(roomId) {
+    hideOverdueReceiveForm(roomId);
+    const box = document.getElementById(`overdue-snooze-box-${roomId}`);
+    if (box) box.style.display = 'block';
+  }
+
+  function hideOverdueSnoozeForm(roomId) {
+    const box = document.getElementById(`overdue-snooze-box-${roomId}`);
+    if (box) box.style.display = 'none';
+  }
+
+  function onOverdueMonthSelectChange(roomId) {
+    const sel = document.getElementById(`overdue-pay-month-${roomId}`);
+    const amtInput = document.getElementById(`overdue-pay-amount-${roomId}`);
+    if (!sel || !amtInput) return;
+
+    if (sel.value === 'ALL') {
+      const roomItem = getOverdueRentRooms().find(o => o.room.id === roomId);
+      if (roomItem) amtInput.value = roomItem.totalOverdue;
+    } else {
+      const opt = sel.options[sel.selectedIndex];
+      const due = opt ? opt.getAttribute('data-due') : null;
+      if (due) amtInput.value = due;
+    }
+  }
+
+  function setOverdueSnoozeQuickDate(roomId, daysOffset, btnEl) {
+    const d = new Date();
+    d.setDate(d.getDate() + daysOffset);
+    const dateStr = d.toISOString().split('T')[0];
+    const input = document.getElementById(`overdue-snooze-date-${roomId}`);
+    if (input) input.value = dateStr;
+
+    if (btnEl && btnEl.parentElement) {
+      btnEl.parentElement.querySelectorAll('.date-quick-btn').forEach(b => b.classList.remove('active'));
+      btnEl.classList.add('active');
+    }
+  }
+
+  function setOverdueSnoozeNextMonthFirst(roomId, btnEl) {
+    const now = new Date();
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    const dateStr = nextMonth.toISOString().split('T')[0];
+    const input = document.getElementById(`overdue-snooze-date-${roomId}`);
+    if (input) input.value = dateStr;
+
+    if (btnEl && btnEl.parentElement) {
+      btnEl.parentElement.querySelectorAll('.date-quick-btn').forEach(b => b.classList.remove('active'));
+      btnEl.classList.add('active');
+    }
+  }
+
+  function submitReceiveOverdueRent(roomId) {
+    const sel = document.getElementById(`overdue-pay-month-${roomId}`);
+    const amtVal = parseFloat(document.getElementById(`overdue-pay-amount-${roomId}`).value);
+    const dateVal = document.getElementById(`overdue-pay-date-${roomId}`).value;
+    const remarksVal = document.getElementById(`overdue-pay-remarks-${roomId}`).value.trim() || 'Paid overdue rent';
+
+    if (isNaN(amtVal) || amtVal <= 0) {
+      alert('Kripya sahi raqam (amount) daalein.');
+      return;
+    }
+    if (!dateVal) {
+      alert('Kripya payment date chunein.');
+      return;
+    }
+
+    if (!rentData.payments) rentData.payments = {};
+    const selectedMonth = sel ? sel.value : 'ALL';
+    const roomItem = getOverdueRentRooms().find(o => o.room.id === roomId);
+
+    if (selectedMonth === 'ALL' && roomItem) {
+      // Split or pay across the unpaid months
+      let remaining = amtVal;
+      roomItem.unpaidMonths.forEach(m => {
+        if (remaining <= 0) return;
+        const payForThisMonth = Math.min(remaining, m.baki);
+        remaining -= payForThisMonth;
+
+        if (!rentData.payments[m.monthKey]) rentData.payments[m.monthKey] = {};
+        const prevPaid = Number((rentData.payments[m.monthKey][roomId] && rentData.payments[m.monthKey][roomId].paidAmount) || 0);
+        const newPaid = prevPaid + payForThisMonth;
+        const status = newPaid >= m.due ? 'Paid' : 'Partial';
+
+        rentData.payments[m.monthKey][roomId] = {
+          paidAmount: newPaid,
+          date: dateVal,
+          remarks: remarksVal,
+          status: status
+        };
+      });
+    } else {
+      // Specific month selected
+      const mKey = selectedMonth;
+      if (!rentData.payments[mKey]) rentData.payments[mKey] = {};
+      const prevPaid = Number((rentData.payments[mKey][roomId] && rentData.payments[mKey][roomId].paidAmount) || 0);
+      const room = rentData.rooms.find(r => r.id === roomId);
+      const expected = room ? Number(room.rentAmount || 0) : amtVal;
+      const newPaid = prevPaid + amtVal;
+      const status = newPaid >= expected ? 'Paid' : 'Partial';
+
+      rentData.payments[mKey][roomId] = {
+        paidAmount: newPaid,
+        date: dateVal,
+        remarks: remarksVal,
+        status: status
+      };
+    }
+
+    // Clear reminder for this room if all cleared
+    saveRentData();
+    renderRentRooms();
+    renderRentAnnual();
+
+    if (settings && settings.autoSyncGoogleSheet && settings.sheetId) {
+      syncToGoogleSheet(true);
+    }
+
+    alert('✅ Payment kamiyabi se jama ho gayi!');
+    openOverdueRentModal(false);
+  }
+
+  function submitSaveOverdueSnooze(roomId) {
+    const dateInput = document.getElementById(`overdue-snooze-date-${roomId}`);
+    const noteInput = document.getElementById(`overdue-snooze-note-${roomId}`);
+    if (!dateInput || !dateInput.value) {
+      alert('Kripya calendar se reminder ki tareeq chunein.');
+      return;
+    }
+
+    if (!rentData.reminders) rentData.reminders = {};
+    rentData.reminders[roomId] = {
+      snoozedUntil: dateInput.value,
+      note: noteInput ? noteInput.value.trim() : '',
+      setAt: new Date().toISOString().split('T')[0]
+    };
+
+    saveRentData();
+    renderRentRooms();
+    alert(`⏰ Reminder set ho gaya! ${formatReadableDate(dateInput.value)} tak popup dobara pareshan nahi karega.`);
+    openOverdueRentModal(false);
+  }
+
+  function removeOverdueSnooze(roomId) {
+    if (rentData.reminders && rentData.reminders[roomId]) {
+      delete rentData.reminders[roomId];
+      saveRentData();
+      renderRentRooms();
+      openOverdueRentModal(true);
+    }
+  }
+
+  // ==================== END OVERDUE RENT 2+ MONTHS REMINDER SYSTEM ====================
 
   function filterRentList(filter) {
     activeRentFilter = filter;
@@ -4156,6 +4653,29 @@ function doPost(e) {
               <div style="font-size:11px; color:var(--text-sec); margin-top:3px;">Monthly: ₹${due.toLocaleString('en-IN')}</div>
             </div>
           </div>
+
+          <!-- Overdue & Snooze Reminder Alert Pill -->
+          ${(() => {
+            const overdueInfo = (typeof getOverdueRentRooms === 'function') ? getOverdueRentRooms().find(o => o.room.id === r.id) : null;
+            const reminder = (rentData.reminders && rentData.reminders[r.id]);
+            const todayStr = new Date().toISOString().split('T')[0];
+            const isSnoozed = reminder && reminder.snoozedUntil && (reminder.snoozedUntil > todayStr);
+
+            if (overdueInfo) {
+              if (isSnoozed) {
+                return `<div style="margin-top:7px; padding:5px 9px; background:rgba(0, 210, 255, 0.1); border:1px solid rgba(0, 210, 255, 0.4); border-radius:8px; font-size:10px; color:#00D2FF; display:flex; justify-content:space-between; align-items:center;">
+                  <span>⏰ Reminder set: <strong>${formatReadableDate(reminder.snoozedUntil)}</strong> ${reminder.note ? '• ' + escapeHtml(reminder.note) : ''}</span>
+                  <button onclick="openOverdueRentModal(true)" style="background:transparent; border:none; color:var(--secondary); font-size:10px; font-weight:700; cursor:pointer;">Badlein ✏️</button>
+                </div>`;
+              } else {
+                return `<div style="margin-top:7px; padding:5px 9px; background:rgba(230, 57, 70, 0.15); border:1px solid rgba(230, 57, 70, 0.5); border-radius:8px; font-size:10px; color:#ff6b6b; display:flex; justify-content:space-between; align-items:center;">
+                  <span>⚠️ <strong>2+ Mahine Ka Rent Baqi:</strong> ₹${overdueInfo.totalOverdue.toLocaleString('en-IN')} (${overdueInfo.unpaidMonths.length} Mahine)</span>
+                  <button onclick="openOverdueRentModal(true)" style="background:var(--error); border:none; color:#fff; border-radius:4px; padding:3px 7px; font-size:10px; font-weight:700; cursor:pointer;">Action 🔔</button>
+                </div>`;
+              }
+            }
+            return '';
+          })()}
 
           <div style="margin-top:8px; padding-top:6px; border-top:1px dashed var(--border); font-size:11px; color:var(--text-sec); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:4px;">
             <div>
